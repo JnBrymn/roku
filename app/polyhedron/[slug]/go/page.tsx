@@ -10,6 +10,7 @@ import GoErrorMessage from '@/components/GoErrorMessage'
 import GoInviteDialog from '@/components/GoInviteDialog'
 import GoPlayerRoleIndicator from '@/components/GoPlayerRoleIndicator'
 import GoSyncWarning from '@/components/GoSyncWarning'
+import GoPassNotification from '@/components/GoPassNotification'
 import { polyhedraData } from '@/lib/polyhedronUtils'
 import { parsePolyhedronData } from '@/lib/polyhedronUtils'
 import { GoGame } from '@/lib/goGame'
@@ -30,6 +31,7 @@ export default function GoPolyhedronPage({ params }: { params: { slug: string; s
   const [syncWarning, setSyncWarning] = useState<string | null>(null)
   const [showInviteDialog, setShowInviteDialog] = useState(false)
   const [updateTrigger, setUpdateTrigger] = useState(0)
+  const [passNotificationPlayer, setPassNotificationPlayer] = useState<'black' | 'white' | null>(null)
   const gameSyncRef = useRef<GameSyncAdapter | null>(null)
 
   // Initialize game and sync adapter when polyhedron data is loaded
@@ -64,7 +66,16 @@ export default function GoPolyhedronPage({ params }: { params: { slug: string; s
 
         // Set up event handlers
         sync.onMove(() => handleStateChange())
-        sync.onPass(() => handleStateChange())
+        sync.onPass(() => {
+          // Determine which player passed: after a pass, the current player switches
+          // (unless it's the second pass and game ended, in which case current player is the one who passed)
+          const currentPlayer = newGame.getCurrentPlayer()
+          const isGameOver = newGame.isGameOver()
+          // If game just ended, current player passed; otherwise, opposite player passed
+          const passingPlayer = isGameOver ? currentPlayer : (currentPlayer === 'black' ? 'white' : 'black')
+          setPassNotificationPlayer(passingPlayer)
+          handleStateChange()
+        })
         sync.onUndo(() => handleStateChange())
         sync.onRedo(() => handleStateChange())
         sync.onRemoveGroup(() => handleStateChange())
@@ -167,8 +178,12 @@ export default function GoPolyhedronPage({ params }: { params: { slug: string; s
       return
     }
 
+    // Capture the current player before passing
+    const passingPlayer = game.getCurrentPlayer()
+
     gameSync.sendPass().then(result => {
       if (result.success) {
+        setPassNotificationPlayer(passingPlayer)
         handleStateChange()
       } else {
         setErrorMessage(result.reason || 'Cannot pass')
@@ -260,6 +275,7 @@ export default function GoPolyhedronPage({ params }: { params: { slug: string; s
       />
       <GoGameOver game={game} />
       <GoErrorMessage message={errorMessage || ownershipError} />
+      <GoPassNotification player={passNotificationPlayer} />
       <GoInviteDialog
         open={showInviteDialog}
         onClose={() => setShowInviteDialog(false)}
