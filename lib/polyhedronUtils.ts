@@ -57,15 +57,19 @@ export function parsePolyhedronData(text: string): PolyhedronData {
 }
 
 export function createWireframeGeometry(vertices: number[][], edges: number[][]): THREE.BufferGeometry {
-  const points: THREE.Vector3[] = []
+  // Create positions array with explicit pairs for each edge
+  // Each edge needs two vertices, and we don't want to connect edges together
+  const positions: number[] = []
   
   for (const [v1, v2] of edges) {
-    const start = new THREE.Vector3(...vertices[v1])
-    const end = new THREE.Vector3(...vertices[v2])
-    points.push(start, end)
+    const start = vertices[v1]
+    const end = vertices[v2]
+    // Push each edge as a separate pair: [x1, y1, z1, x2, y2, z2]
+    positions.push(start[0], start[1], start[2], end[0], end[1], end[2])
   }
   
-  const geometry = new THREE.BufferGeometry().setFromPoints(points)
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
   return geometry
 }
 

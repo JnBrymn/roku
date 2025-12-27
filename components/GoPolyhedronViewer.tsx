@@ -8,41 +8,50 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js'
 import { parsePolyhedronData, createWireframeGeometry } from '@/lib/polyhedronUtils'
 
-interface FullScreenPolyhedronViewerProps {
+interface GoPolyhedronViewerProps {
   dataFile: string
   name: string
 }
 
-export default function FullScreenPolyhedronViewer({ dataFile, name }: FullScreenPolyhedronViewerProps) {
+export default function GoPolyhedronViewer({ dataFile, name }: GoPolyhedronViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const rotationRef = useRef({ pitch: 0, yaw: 0 })
   const keysRef = useRef<Set<string>>(new Set())
+  const stonesRef = useRef<Map<number, THREE.Mesh>>(new Map())
 
   useEffect(() => {
     if (!containerRef.current) return
 
-    // Disable mouse interactions for rotation/dragging
-    const preventMouseInteraction = (e: MouseEvent) => {
-      // Allow clicks on the back button
+    // Allow clicks on canvas for placing stones, but prevent dragging
+    const preventDrag = (e: MouseEvent) => {
       const target = e.target as HTMLElement
+      // Allow clicks on the back button
       if (target.closest('.back-button')) {
         return
       }
-      // Prevent all other mouse interactions
-      e.preventDefault()
-      e.stopPropagation()
+      // Allow clicks on canvas (for placing stones)
+      if (target.tagName === 'CANVAS') {
+        return
+      }
+      // Prevent other mouse interactions
+      if (e.type === 'mousemove' || e.type === 'dragstart') {
+        e.preventDefault()
+        e.stopPropagation()
+      }
     }
 
-    const preventTouchInteraction = (e: TouchEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
+    const preventTouchDrag = (e: TouchEvent) => {
+      // Allow touch clicks but prevent dragging
+      if (e.type === 'touchmove') {
+        e.preventDefault()
+        e.stopPropagation()
+      }
     }
 
-    document.addEventListener('mousedown', preventMouseInteraction, true)
-    document.addEventListener('mousemove', preventMouseInteraction, true)
-    document.addEventListener('touchstart', preventTouchInteraction, true)
-    document.addEventListener('touchmove', preventTouchInteraction, true)
+    document.addEventListener('mousemove', preventDrag, true)
+    document.addEventListener('dragstart', preventDrag, true)
+    document.addEventListener('touchmove', preventTouchDrag, true)
 
     let scene: THREE.Scene
     let camera: THREE.PerspectiveCamera
@@ -52,12 +61,18 @@ export default function FullScreenPolyhedronViewer({ dataFile, name }: FullScree
     let handleResize: () => void
     let handleKeyDown: (e: KeyboardEvent) => void
     let handleKeyUp: (e: KeyboardEvent) => void
+    let handleClick: (e: MouseEvent) => void
+    let raycaster: THREE.Raycaster
+    let vertexSpheres: THREE.Mesh[] = []
+    let vertexGroup: THREE.Group
+    let polyhedronData: { vertices: number[][], edges: number[][] }
 
     const init = async () => {
       // Fetch and parse data
       const response = await fetch(dataFile)
       const text = await response.text()
       const data = parsePolyhedronData(text)
+      polyhedronData = data
 
       // Create scene
       scene = new THREE.Scene()
@@ -66,8 +81,8 @@ export default function FullScreenPolyhedronViewer({ dataFile, name }: FullScree
       // Create camera
       const width = window.innerWidth
       const height = window.innerHeight
-      camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000)
-      camera.position.set(3, 3, 3)
+      camera = new THREE.PerspectiveCamera(20, width / height, 0.1, 1000)
+      camera.position.set(6, 6, 6)
       camera.lookAt(0, 0, 0)
 
       // Create renderer
@@ -77,7 +92,7 @@ export default function FullScreenPolyhedronViewer({ dataFile, name }: FullScree
 
       // Calculate the initial rotation matrix to align with screen coordinates
       // This will be applied to both wireframe and global axes
-      const viewDirection = new THREE.Vector3(3, 3, 3).normalize()
+      const viewDirection = new THREE.Vector3(6, 6, 6).normalize()
       const worldUp = new THREE.Vector3(0, 1, 0)
       const right = new THREE.Vector3().crossVectors(worldUp, viewDirection).normalize()
       const screenUp = new THREE.Vector3().crossVectors(viewDirection, right).normalize()
@@ -227,6 +242,31 @@ export default function FullScreenPolyhedronViewer({ dataFile, name }: FullScree
 
       scene.add(globalAxesGroup)
 
+      // Create invisible spheres at each vertex for raycasting
+      raycaster = new THREE.Raycaster()
+      vertexGroup = new THREE.Group()
+      vertexSpheres = []
+      
+      for (let i = 0; i < data.vertices.length; i++) {
+        const vertexPos = new THREE.Vector3(...data.vertices[i])
+        // Create a larger invisible sphere for raycasting (easier to click)
+        const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16)
+        const sphereMaterial = new THREE.MeshBasicMaterial({ 
+          visible: false, 
+          transparent: true, 
+          opacity: 0 
+        })
+        const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial)
+        sphere.position.copy(vertexPos)
+        sphere.userData = { vertexIndex: i }
+        vertexGroup.add(sphere)
+        vertexSpheres.push(sphere)
+      }
+      
+      // Apply the same rotation as wireframe
+      vertexGroup.quaternion.copy(initialQuaternion)
+      scene.add(vertexGroup)
+
       // Add lights
       const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
       scene.add(ambientLight)
@@ -266,6 +306,90 @@ export default function FullScreenPolyhedronViewer({ dataFile, name }: FullScree
 
       window.addEventListener('keydown', handleKeyDown)
       window.addEventListener('keyup', handleKeyUp)
+
+      // Click handler for placing stones
+      handleClick = (e: MouseEvent) => {
+        const target = e.target as HTMLElement
+        // Only handle clicks on canvas
+        if (target.tagName !== 'CANVAS') return
+        
+        // Get mouse position in normalized device coordinates (-1 to +1)
+        const rect = renderer.domElement.getBoundingClientRect()
+        const mouse = new THREE.Vector2()
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
+        
+        // Update raycaster with camera and mouse position
+        raycaster.setFromCamera(mouse, camera)
+        
+        // Find intersections with vertex group (recursive to include all spheres)
+        const intersects = raycaster.intersectObjects([vertexGroup], true)
+        
+        console.log('Click detected, intersections:', intersects.length)
+        
+        if (intersects.length > 0) {
+          const hitSphere = intersects[0].object as THREE.Mesh
+          const vertexIndex = hitSphere.userData.vertexIndex as number
+          
+          console.log('Hit vertex:', vertexIndex, 'Distance:', intersects[0].distance)
+          
+          // Get world position of the hit sphere (already transformed by parent group)
+          const vertexWorldPos = new THREE.Vector3()
+          hitSphere.getWorldPosition(vertexWorldPos)
+          
+          // Get camera forward direction
+          const cameraDirection = new THREE.Vector3()
+          camera.getWorldDirection(cameraDirection)
+          
+          // Vector from camera to vertex
+          const cameraToVertex = new THREE.Vector3()
+          cameraToVertex.subVectors(vertexWorldPos, camera.position)
+          
+          // Normalize for accurate dot product
+          cameraToVertex.normalize()
+          
+          // Check if vertex is in front of camera (dot product > 0 means front-facing)
+          // Also check that the intersection distance is reasonable (not too far)
+          const dotProduct = cameraToVertex.dot(cameraDirection)
+          const distance = intersects[0].distance
+          
+          console.log('Dot product:', dotProduct, 'Distance:', distance)
+          
+          if (dotProduct > 0 && distance < 100) {
+            // Vertex is front-facing, place a stone
+            // Check if stone already exists at this vertex
+            if (!stonesRef.current.has(vertexIndex)) {
+              console.log('Placing stone at vertex:', vertexIndex)
+              
+              // Create black stone (sphere)
+              const stoneGeometry = new THREE.SphereGeometry(0.12, 32, 32)
+              const stoneMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x000000,
+                metalness: 0.3,
+                roughness: 0.7
+              })
+              const stone = new THREE.Mesh(stoneGeometry, stoneMaterial)
+              
+              // Position stone at vertex (in wireframe's local space)
+              stone.position.copy(new THREE.Vector3(...polyhedronData.vertices[vertexIndex]))
+              
+              // Add to wireframe so it rotates with the polyhedron
+              wireframe.add(stone)
+              
+              // Store stone reference
+              stonesRef.current.set(vertexIndex, stone)
+            } else {
+              console.log('Stone already exists at vertex:', vertexIndex)
+            }
+          } else {
+            console.log('Vertex not front-facing or too far')
+          }
+        } else {
+          console.log('No intersections found')
+        }
+      }
+      
+      renderer.domElement.addEventListener('click', handleClick)
 
       // Animation loop with WASD controls
       // Coordinate system: X=right, Y=up, Z=out (towards viewer)
@@ -323,6 +447,11 @@ export default function FullScreenPolyhedronViewer({ dataFile, name }: FullScree
         // Multiply yaw on the left to rotate in world space around the transformed Y axis
         wireframe.quaternion.multiplyQuaternions(yawQuaternion, afterPitchQuaternion)
         
+        // Update vertex spheres rotation to match wireframe
+        if (vertexSpheres.length > 0 && vertexSpheres[0].parent) {
+          vertexSpheres[0].parent.quaternion.copy(wireframe.quaternion)
+        }
+        
         renderer.render(scene, camera)
       }
 
@@ -333,13 +462,15 @@ export default function FullScreenPolyhedronViewer({ dataFile, name }: FullScree
 
     // Cleanup function
     return () => {
-      document.removeEventListener('mousedown', preventMouseInteraction, true)
-      document.removeEventListener('mousemove', preventMouseInteraction, true)
-      document.removeEventListener('touchstart', preventTouchInteraction, true)
-      document.removeEventListener('touchmove', preventTouchInteraction, true)
+      document.removeEventListener('mousemove', preventDrag, true)
+      document.removeEventListener('dragstart', preventDrag, true)
+      document.removeEventListener('touchmove', preventTouchDrag, true)
       if (handleResize) window.removeEventListener('resize', handleResize)
       if (handleKeyDown) window.removeEventListener('keydown', handleKeyDown)
       if (handleKeyUp) window.removeEventListener('keyup', handleKeyUp)
+      if (handleClick && renderer) {
+        renderer.domElement.removeEventListener('click', handleClick)
+      }
       if (animationId) {
         cancelAnimationFrame(animationId)
       }
@@ -353,13 +484,13 @@ export default function FullScreenPolyhedronViewer({ dataFile, name }: FullScree
   return (
     <div className="fullscreen-viewer">
       <div className="viewer-header">
-        <h2>{name}</h2>
+        <h2>{name} - Play Go</h2>
         <button onClick={() => router.push('/')} className="back-button">
           ← Back
         </button>
       </div>
       <div className="controls-hint">
-        Use WASD to rotate • ESC to go back
+        Click on front-facing vertices to place black stones • Use WASD to rotate • ESC to go back
       </div>
       <div ref={containerRef} className="fullscreen-canvas" />
     </div>
