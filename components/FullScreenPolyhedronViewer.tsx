@@ -98,11 +98,11 @@ export default function FullScreenPolyhedronViewer({ dataFile, name }: FullScree
       
       scene.add(wireframe)
 
-      // Add inradius sphere at origin if inradius is defined
+      // Add midradius sphere at origin if midradius is defined
       // Colored based on local radius direction (RGB mapping)
       // Attached to wireframe so it rotates with local axes
-      if (data.inradius !== undefined) {
-        const sphereGeometry = new THREE.SphereGeometry(data.inradius, 64, 64)
+      if (data.midradius !== undefined) {
+        const sphereGeometry = new THREE.SphereGeometry(data.midradius, 64, 64)
         
         // Custom shader material that colors based on direction vector (local radius direction)
         // RGB = direction vector components, negative values are inverted
@@ -136,9 +136,9 @@ export default function FullScreenPolyhedronViewer({ dataFile, name }: FullScree
           `
         })
         
-        const inradiusSphere = new THREE.Mesh(sphereGeometry, sphereMaterial)
+        const midradiusSphere = new THREE.Mesh(sphereGeometry, sphereMaterial)
         // Add to wireframe so it rotates with local axes
-        wireframe.add(inradiusSphere)
+        wireframe.add(midradiusSphere)
       }
 
       // Add local axes attached to wireframe - shows Y' as it rotates
