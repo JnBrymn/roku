@@ -12,6 +12,7 @@ import GoPlayerRoleIndicator from '@/components/GoPlayerRoleIndicator'
 import GoSyncWarning from '@/components/GoSyncWarning'
 import GoPassNotification from '@/components/GoPassNotification'
 import GoClipboardNotification from '@/components/GoClipboardNotification'
+import GoWASDNotification from '@/components/GoWASDNotification'
 import { polyhedraData } from '@/lib/polyhedronUtils'
 import { parsePolyhedronData } from '@/lib/polyhedronUtils'
 import { GoGame } from '@/lib/goGame'
@@ -306,6 +307,7 @@ export default function GoPolyhedronPage({ params }: { params: { slug: string; s
       <GoErrorMessage message={errorMessage || ownershipError} />
       <GoPassNotification player={passNotificationPlayer} />
       <GoClipboardNotification show={showClipboardNotification} />
+      <GoWASDNotification />
       <GoInviteDialog
         open={showInviteDialog}
         onClose={() => setShowInviteDialog(false)}
