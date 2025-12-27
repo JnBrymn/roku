@@ -6,6 +6,8 @@ import * as THREE from 'three'
 import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2.js'
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js'
+import { Line2 } from 'three/examples/jsm/lines/Line2.js'
+import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
 import { parsePolyhedronData, createWireframeGeometry } from '@/lib/polyhedronUtils'
 import { GoGame, StoneColor } from '@/lib/goGame'
 
@@ -178,6 +180,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
     let vertexGroup: THREE.Group
     let polyhedronData: { vertices: number[][], edges: number[][] }
     let midradiusSphere: THREE.Mesh | null = null
+    let squareArcs: Line2[] = []
 
     const init = async () => {
       // Check if canvas already exists INSIDE init (right before creating renderer)
@@ -300,6 +303,212 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
         midradiusSphere = new THREE.Mesh(sphereGeometry, sphereMaterial)
         // Add to wireframe so it rotates with local axes
         wireframe.add(midradiusSphere)
+        
+        // Add blue circle on the positive blue (Z) side at intersection with 30-degree cone
+        // For a 30-degree cone (half-angle = 30° = π/6):
+        // - Circle is at z = R * cos(30°) = R * √3/2
+        // - Circle radius on sphere = R * sin(30°) = R * 1/2
+        const coneAngle = Math.PI / 6 // 30 degrees
+        const R = data.midradius
+        const circleZ = R * Math.cos(coneAngle) // Z position of circle center
+        const circleRadius = R * Math.sin(coneAngle) // Radius of circle on sphere surface
+        
+        // Create a thin ring (torus) to represent the circle on the sphere surface
+        // Use a very small tube radius to make it appear as a line
+        const ringGeometry = new THREE.TorusGeometry(circleRadius, 0.01, 16, 64)
+        const ringMaterial = new THREE.MeshBasicMaterial({
+          color: 0x0000ff, // Blue
+          side: THREE.DoubleSide
+        })
+        const blueCircle = new THREE.Mesh(ringGeometry, ringMaterial)
+        
+        // Position the circle at the correct Z coordinate (on positive blue side)
+        // The circle lies in the XY plane, perpendicular to Z-axis
+        blueCircle.position.set(0, 0, circleZ)
+        
+        // Add to wireframe so it rotates with the sphere
+        wireframe.add(blueCircle)
+        
+        // Add green circle on the positive green (Y) side at intersection with 30-degree cone
+        // Circle is at y = R * cos(30°) = R * √3/2
+        // Circle lies in the XZ plane, perpendicular to Y-axis
+        const circleY = R * Math.cos(coneAngle) // Y position of circle center
+        const greenRingGeometry = new THREE.TorusGeometry(circleRadius, 0.01, 16, 64)
+        const greenRingMaterial = new THREE.MeshBasicMaterial({
+          color: 0x00ff00, // Green
+          side: THREE.DoubleSide
+        })
+        const greenCircle = new THREE.Mesh(greenRingGeometry, greenRingMaterial)
+        
+        // Position at correct Y coordinate and rotate 90° around X-axis to lie in XZ plane
+        greenCircle.position.set(0, circleY, 0)
+        greenCircle.rotation.x = Math.PI / 2 // Rotate to XZ plane
+        
+        wireframe.add(greenCircle)
+        
+        // Add red circle on the positive red (X) side at intersection with 30-degree cone
+        // Circle is at x = R * cos(30°) = R * √3/2
+        // Circle lies in the YZ plane, perpendicular to X-axis
+        const circleX = R * Math.cos(coneAngle) // X position of circle center
+        const redRingGeometry = new THREE.TorusGeometry(circleRadius, 0.01, 16, 64)
+        const redRingMaterial = new THREE.MeshBasicMaterial({
+          color: 0xff0000, // Red
+          side: THREE.DoubleSide
+        })
+        const redCircle = new THREE.Mesh(redRingGeometry, redRingMaterial)
+        
+        // Position at correct X coordinate and rotate 90° around Y-axis to lie in YZ plane
+        redCircle.position.set(circleX, 0, 0)
+        redCircle.rotation.y = Math.PI / 2 // Rotate to YZ plane
+        
+        wireframe.add(redCircle)
+        
+        // Add red square on the negative X side made of 4 great arcs
+        // Square vertices form a square in the YZ plane at negative X
+        // Use the same circle radius to define square size
+        const negativeCircleX = -R * Math.cos(coneAngle) // Negative X position
+        const halfSide = circleRadius // Square half-side length (inscribed in circle)
+        
+        // Define 4 square vertices in YZ plane at negative X, then project onto sphere
+        const projectToSphere = (x: number, y: number, z: number): THREE.Vector3 => {
+          const vec = new THREE.Vector3(x, y, z)
+          return vec.normalize().multiplyScalar(R)
+        }
+        
+        // Square vertices (in YZ plane at negative X)
+        const v1 = projectToSphere(negativeCircleX, -halfSide, -halfSide)
+        const v2 = projectToSphere(negativeCircleX, halfSide, -halfSide)
+        const v3 = projectToSphere(negativeCircleX, halfSide, halfSide)
+        const v4 = projectToSphere(negativeCircleX, -halfSide, halfSide)
+        
+        // Helper function to create great arc points between two vertices on sphere
+        // Uses spherical linear interpolation (slerp) to follow the great circle path
+        const createGreatArc = (start: THREE.Vector3, end: THREE.Vector3, segments: number = 64): THREE.Vector3[] => {
+          const points: THREE.Vector3[] = []
+          
+          // Normalize to ensure they're on the sphere
+          const startNorm = start.clone().normalize()
+          const endNorm = end.clone().normalize()
+          
+          // Calculate the angle between the two vectors
+          const angle = startNorm.angleTo(endNorm)
+          
+          // Create points along the great arc using spherical linear interpolation
+          for (let i = 0; i <= segments; i++) {
+            const t = i / segments
+            // Spherical linear interpolation (slerp)
+            const sinAngle = Math.sin(angle)
+            if (Math.abs(sinAngle) < 1e-6) {
+              // Points are nearly identical or opposite
+              points.push(startNorm.clone().multiplyScalar(R))
+            } else {
+              const w1 = Math.sin((1 - t) * angle) / sinAngle
+              const w2 = Math.sin(t * angle) / sinAngle
+              const point = new THREE.Vector3()
+                .addScaledVector(startNorm, w1)
+                .addScaledVector(endNorm, w2)
+              // Normalize and scale to sphere radius
+              point.normalize().multiplyScalar(R)
+              points.push(point)
+            }
+          }
+          
+          return points
+        }
+        
+        // Create 4 great arcs for the square edges
+        const arc1Points = createGreatArc(v1, v2) // Bottom edge
+        const arc2Points = createGreatArc(v2, v3) // Right edge
+        const arc3Points = createGreatArc(v3, v4) // Top edge
+        const arc4Points = createGreatArc(v4, v1) // Left edge
+        
+        // Create geometries and lines for each arc using Line2 for thick lines
+        const createArcLine = (points: THREE.Vector3[], color: number) => {
+          // Convert points to flat array for LineGeometry
+          const positions: number[] = []
+          for (const point of points) {
+            positions.push(point.x, point.y, point.z)
+          }
+          
+          const lineGeometry = new LineGeometry()
+          lineGeometry.setPositions(positions)
+          
+          const lineMaterial = new LineMaterial({
+            color: color,
+            linewidth: 8, // Thick line
+            resolution: new THREE.Vector2(width, height)
+          })
+          
+          return new Line2(lineGeometry, lineMaterial)
+        }
+        
+        const squareArc1 = createArcLine(arc1Points, 0xff0000) // Red
+        const squareArc2 = createArcLine(arc2Points, 0xff0000) // Red
+        const squareArc3 = createArcLine(arc3Points, 0xff0000) // Red
+        const squareArc4 = createArcLine(arc4Points, 0xff0000) // Red
+        
+        squareArcs = [squareArc1, squareArc2, squareArc3, squareArc4]
+        
+        wireframe.add(squareArc1)
+        wireframe.add(squareArc2)
+        wireframe.add(squareArc3)
+        wireframe.add(squareArc4)
+        
+        // Add blue square on the negative Z side made of 4 great arcs
+        // Square vertices form a square in the XY plane at negative Z
+        const negativeCircleZ = -R * Math.cos(coneAngle) // Negative Z position
+        
+        // Square vertices (in XY plane at negative Z)
+        const blueV1 = projectToSphere(-halfSide, -halfSide, negativeCircleZ)
+        const blueV2 = projectToSphere(halfSide, -halfSide, negativeCircleZ)
+        const blueV3 = projectToSphere(halfSide, halfSide, negativeCircleZ)
+        const blueV4 = projectToSphere(-halfSide, halfSide, negativeCircleZ)
+        
+        // Create 4 great arcs for the blue square edges
+        const blueArc1Points = createGreatArc(blueV1, blueV2) // Bottom edge
+        const blueArc2Points = createGreatArc(blueV2, blueV3) // Right edge
+        const blueArc3Points = createGreatArc(blueV3, blueV4) // Top edge
+        const blueArc4Points = createGreatArc(blueV4, blueV1) // Left edge
+        
+        const blueSquareArc1 = createArcLine(blueArc1Points, 0x0000ff) // Blue
+        const blueSquareArc2 = createArcLine(blueArc2Points, 0x0000ff) // Blue
+        const blueSquareArc3 = createArcLine(blueArc3Points, 0x0000ff) // Blue
+        const blueSquareArc4 = createArcLine(blueArc4Points, 0x0000ff) // Blue
+        
+        squareArcs.push(blueSquareArc1, blueSquareArc2, blueSquareArc3, blueSquareArc4)
+        
+        wireframe.add(blueSquareArc1)
+        wireframe.add(blueSquareArc2)
+        wireframe.add(blueSquareArc3)
+        wireframe.add(blueSquareArc4)
+        
+        // Add green square on the negative Y side made of 4 great arcs
+        // Square vertices form a square in the XZ plane at negative Y
+        const negativeCircleY = -R * Math.cos(coneAngle) // Negative Y position
+        
+        // Square vertices (in XZ plane at negative Y)
+        const greenV1 = projectToSphere(-halfSide, negativeCircleY, -halfSide)
+        const greenV2 = projectToSphere(halfSide, negativeCircleY, -halfSide)
+        const greenV3 = projectToSphere(halfSide, negativeCircleY, halfSide)
+        const greenV4 = projectToSphere(-halfSide, negativeCircleY, halfSide)
+        
+        // Create 4 great arcs for the green square edges
+        const greenArc1Points = createGreatArc(greenV1, greenV2) // Bottom edge
+        const greenArc2Points = createGreatArc(greenV2, greenV3) // Right edge
+        const greenArc3Points = createGreatArc(greenV3, greenV4) // Top edge
+        const greenArc4Points = createGreatArc(greenV4, greenV1) // Left edge
+        
+        const greenSquareArc1 = createArcLine(greenArc1Points, 0x00ff00) // Green
+        const greenSquareArc2 = createArcLine(greenArc2Points, 0x00ff00) // Green
+        const greenSquareArc3 = createArcLine(greenArc3Points, 0x00ff00) // Green
+        const greenSquareArc4 = createArcLine(greenArc4Points, 0x00ff00) // Green
+        
+        squareArcs.push(greenSquareArc1, greenSquareArc2, greenSquareArc3, greenSquareArc4)
+        
+        wireframe.add(greenSquareArc1)
+        wireframe.add(greenSquareArc2)
+        wireframe.add(greenSquareArc3)
+        wireframe.add(greenSquareArc4)
       }
 
       // Add local axes attached to wireframe - shows Y' as it rotates
@@ -379,6 +588,12 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
         if (wireframe instanceof LineSegments2) {
           (wireframe.material as LineMaterial).resolution.set(width, height)
         }
+        // Update square arc line materials resolution
+        squareArcs.forEach(arc => {
+          if (arc.material instanceof LineMaterial) {
+            arc.material.resolution.set(width, height)
+          }
+        })
       }
       window.addEventListener('resize', handleResize)
 
