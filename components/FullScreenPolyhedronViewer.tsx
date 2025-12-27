@@ -3,6 +3,9 @@
 import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import * as THREE from 'three'
+import { Line2 } from 'three/examples/jsm/lines/Line2.js'
+import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
+import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
 import { parsePolyhedronData, createWireframeGeometry } from '@/lib/polyhedronUtils'
 
 interface FullScreenPolyhedronViewerProps {
@@ -44,7 +47,7 @@ export default function FullScreenPolyhedronViewer({ dataFile, name }: FullScree
     let scene: THREE.Scene
     let camera: THREE.PerspectiveCamera
     let renderer: THREE.WebGLRenderer
-    let wireframe: THREE.LineSegments
+    let wireframe: Line2 | THREE.LineSegments
     let animationId: number
     let handleResize: () => void
     let handleKeyDown: (e: KeyboardEvent) => void
@@ -58,7 +61,7 @@ export default function FullScreenPolyhedronViewer({ dataFile, name }: FullScree
 
       // Create scene
       scene = new THREE.Scene()
-      scene.background = new THREE.Color(0x0a0a0a)
+      scene.background = new THREE.Color(0x808080)
 
       // Create camera
       const width = window.innerWidth
@@ -85,13 +88,32 @@ export default function FullScreenPolyhedronViewer({ dataFile, name }: FullScree
       const initialQuaternion = new THREE.Quaternion()
       initialQuaternion.setFromRotationMatrix(initialRotationMatrix)
 
-      // Create wireframe
+      // Create wireframe with thick black lines
       const geometry = createWireframeGeometry(data.vertices, data.edges)
-      const material = new THREE.LineBasicMaterial({ 
-        color: 0x667eea,
-        linewidth: 2
+      
+      // Convert geometry to Line2 format for thick lines
+      const positions: number[] = []
+      const geometryAttributes = geometry.attributes.position
+      for (let i = 0; i < geometryAttributes.count; i += 2) {
+        const x1 = geometryAttributes.getX(i)
+        const y1 = geometryAttributes.getY(i)
+        const z1 = geometryAttributes.getZ(i)
+        const x2 = geometryAttributes.getX(i + 1)
+        const y2 = geometryAttributes.getY(i + 1)
+        const z2 = geometryAttributes.getZ(i + 1)
+        positions.push(x1, y1, z1, x2, y2, z2)
+      }
+      
+      const lineGeometry = new LineGeometry()
+      lineGeometry.setPositions(positions)
+      
+      const lineMaterial = new LineMaterial({
+        color: 0x000000,
+        linewidth: 4,
+        resolution: new THREE.Vector2(width, height)
       })
-      wireframe = new THREE.LineSegments(geometry, material)
+      
+      wireframe = new Line2(lineGeometry, lineMaterial)
       
       // Set initial quaternion so local axes match global axes
       wireframe.quaternion.copy(initialQuaternion)
@@ -220,6 +242,10 @@ export default function FullScreenPolyhedronViewer({ dataFile, name }: FullScree
         camera.aspect = width / height
         camera.updateProjectionMatrix()
         renderer.setSize(width, height)
+        // Update line material resolution for proper rendering
+        if (wireframe instanceof Line2) {
+          (wireframe.material as LineMaterial).resolution.set(width, height)
+        }
       }
       window.addEventListener('resize', handleResize)
 

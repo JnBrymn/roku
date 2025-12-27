@@ -76,9 +76,6 @@ export const polyhedraData = [
   { file: '/data/octahedron.txt', name: 'Octahedron', slug: 'octahedron' },
   { file: '/data/dodecahedron.txt', name: 'Dodecahedron', slug: 'dodecahedron' },
   { file: '/data/icosahedron.txt', name: 'Icosahedron', slug: 'icosahedron' },
-  // Johnson Solids
-  { file: '/data/square_pyramid.txt', name: 'Square Pyramid', slug: 'square-pyramid' },
-  { file: '/data/pentagonal_pyramid.txt', name: 'Pentagonal Pyramid', slug: 'pentagonal-pyramid' },
   // Near-miss Johnson Solids
   { file: '/data/rectified_truncated_icosahedron.txt', name: 'Rectified Truncated Icosahedron', slug: 'rectified-truncated-icosahedron' },
   { file: '/data/expanded_truncated_icosahedron.txt', name: 'Expanded Truncated Icosahedron', slug: 'expanded-truncated-icosahedron' },

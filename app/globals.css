@@ -100,13 +100,30 @@ canvas {
   font-size: 0.9rem;
 }
 
+.play-go-button {
+  width: 100%;
+  background: rgba(102, 126, 234, 0.2);
+  border: 1px solid #667eea;
+  color: #ffffff;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.2s ease;
+  font-weight: 500;
+}
+
+.play-go-button:hover {
+  background: rgba(102, 126, 234, 0.3);
+}
+
 .fullscreen-viewer {
   width: 100vw;
   height: 100vh;
   position: fixed;
   top: 0;
   left: 0;
-  background: #0a0a0a;
+  background: #808080;
   display: flex;
   flex-direction: column;
 }
@@ -167,4 +184,9 @@ canvas {
   -webkit-user-select: none !important;
   -moz-user-select: none !important;
   -ms-user-select: none !important;
+}
+
+/* Allow pointer events for Go viewer canvas */
+.fullscreen-viewer .fullscreen-canvas canvas {
+  pointer-events: auto !important;
 }
