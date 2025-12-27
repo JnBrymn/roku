@@ -190,3 +190,93 @@ canvas {
 .fullscreen-viewer .fullscreen-canvas canvas {
   pointer-events: auto !important;
 }
+
+/* Go Game UI Components */
+.go-game-status {
+  position: fixed;
+  top: 80px;
+  left: 2rem;
+  background: rgba(26, 26, 26, 0.9);
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #2a2a2a;
+  z-index: 20;
+  color: #ffffff;
+}
+
+.go-game-status .current-player {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.go-game-status .game-over-message {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #667eea;
+  margin-bottom: 0.5rem;
+}
+
+.go-game-status .move-count {
+  font-size: 0.9rem;
+  color: #888;
+}
+
+.go-game-controls {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 1rem;
+  z-index: 20;
+}
+
+.go-game-controls button {
+  background: rgba(102, 126, 234, 0.2);
+  border: 1px solid #667eea;
+  color: #ffffff;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.2s ease;
+  font-weight: 500;
+}
+
+.go-game-controls button:hover:not(:disabled) {
+  background: rgba(102, 126, 234, 0.3);
+}
+
+.go-game-controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.go-error-message {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(220, 38, 38, 0.95);
+  color: #ffffff;
+  padding: 1.5rem 2rem;
+  border-radius: 8px;
+  border: 2px solid #dc2626;
+  z-index: 100;
+  font-size: 1.1rem;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}

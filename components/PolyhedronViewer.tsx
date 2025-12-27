@@ -95,11 +95,6 @@ export default function PolyhedronViewer({ dataFile, name }: PolyhedronViewerPro
   }, [dataFile])
 
   const handleClick = () => {
-    router.push(`/polyhedron/${slug}`)
-  }
-
-  const handlePlayGo = (e: React.MouseEvent) => {
-    e.stopPropagation() // Prevent card click
     router.push(`/polyhedron/${slug}/go`)
   }
 
@@ -108,13 +103,6 @@ export default function PolyhedronViewer({ dataFile, name }: PolyhedronViewerPro
       <div className="polyhedron-name">{name}</div>
       <div className="canvas-container" ref={containerRef} />
       <div className="info">{info}</div>
-      <button 
-        onClick={handlePlayGo} 
-        className="play-go-button"
-        style={{ marginTop: '0.5rem' }}
-      >
-        Play Go
-      </button>
     </div>
   )
 }

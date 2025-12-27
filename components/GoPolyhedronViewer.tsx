@@ -7,13 +7,22 @@ import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2.js'
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js'
 import { parsePolyhedronData, createWireframeGeometry } from '@/lib/polyhedronUtils'
+import { GoGame, StoneColor } from '@/lib/goGame'
 
 interface GoPolyhedronViewerProps {
   dataFile: string
   name: string
+  /** Game instance to use for move validation and state */
+  game: GoGame
+  /** Callback when a stone placement is attempted (vertexIndex) */
+  onPlaceStone: (vertexIndex: number) => void
+  /** Callback to trigger re-render when board state changes */
+  onStateChange: () => void
+  /** Update trigger to force re-render when game state changes */
+  updateTrigger?: number
 }
 
-export default function GoPolyhedronViewer({ dataFile, name }: GoPolyhedronViewerProps) {
+export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone, onStateChange, updateTrigger }: GoPolyhedronViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const rotationRef = useRef({ pitch: 0, yaw: 0 })
@@ -351,12 +360,14 @@ export default function GoPolyhedronViewer({ dataFile, name }: GoPolyhedronViewe
             return
           }
           
-          // Get the material and check if it's still grey
+          // Get vertex index and check if it's empty (grey)
+          const vertexIndex = clickedSphere.userData.vertexIndex
           const material = clickedSphere.material as THREE.MeshStandardMaterial
+          
+          // Only allow placing stones on empty (grey) vertices
           if (material.color.getHex() === 0x808080) {
-            // Turn the clicked sphere black
-            material.color.setHex(0x000000)
-            console.log('Sphere turned black at vertex:', clickedSphere.userData.vertexIndex)
+            // Emit placeStone event - parent component will validate and update game state
+            onPlaceStone(vertexIndex)
           }
         }
       }
@@ -428,6 +439,28 @@ export default function GoPolyhedronViewer({ dataFile, name }: GoPolyhedronViewe
       }
 
       animate()
+      
+      // Initial sphere color update
+      const updateSphereColors = () => {
+        const board = game.getBoard()
+        const entries = Array.from(stonesRef.current.entries())
+        for (const [vertexIndex, sphere] of entries) {
+          const color = board.get(vertexIndex)
+          const material = sphere.material as THREE.MeshStandardMaterial
+          
+          if (color === null) {
+            // Empty vertex - grey
+            material.color.setHex(0x808080)
+          } else if (color === 'black') {
+            // Black stone
+            material.color.setHex(0x000000)
+          } else if (color === 'white') {
+            // White stone
+            material.color.setHex(0xffffff)
+          }
+        }
+      }
+      updateSphereColors()
     }
 
     init()
@@ -451,7 +484,34 @@ export default function GoPolyhedronViewer({ dataFile, name }: GoPolyhedronViewe
         renderer.dispose()
       }
     }
-  }, [dataFile, router])
+  }, [dataFile, router, game, onPlaceStone, onStateChange])
+  
+  // Update sphere colors when game state changes
+  useEffect(() => {
+    if (game && stonesRef.current.size > 0) {
+      // Define updateSphereColors inside the effect to ensure it always uses the current game reference
+      const updateSphereColors = () => {
+        const board = game.getBoard()
+        const entries = Array.from(stonesRef.current.entries())
+        for (const [vertexIndex, sphere] of entries) {
+          const color = board.get(vertexIndex)
+          const material = sphere.material as THREE.MeshStandardMaterial
+          
+          if (color === null) {
+            // Empty vertex - grey
+            material.color.setHex(0x808080)
+          } else if (color === 'black') {
+            // Black stone
+            material.color.setHex(0x000000)
+          } else if (color === 'white') {
+            // White stone
+            material.color.setHex(0xffffff)
+          }
+        }
+      }
+      updateSphereColors()
+    }
+  }, [game, updateTrigger])
 
   return (
     <div className="fullscreen-viewer">
@@ -462,7 +522,7 @@ export default function GoPolyhedronViewer({ dataFile, name }: GoPolyhedronViewe
         </button>
       </div>
       <div className="controls-hint">
-        Click on front-facing grey vertices to turn them black • Use WASD to rotate • ESC to go back
+        Click on front-facing grey vertices to place stones • Use WASD to rotate • ESC to go back
       </div>
       <div ref={containerRef} className="fullscreen-canvas" />
     </div>
