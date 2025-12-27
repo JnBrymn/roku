@@ -44,8 +44,8 @@ export default function Home() {
   return (
     <>
       <header>
-        <h1>Platonic Solids</h1>
-        <p className="subtitle">Geometric Forms in Three Dimensions</p>
+        <h1>Roku: Go on a Polyhedron</h1>
+        <p className="subtitle">Click any polyhedron to play Roku. Invite others to play via weblink.</p>
       </header>
       
       <div className="container">
