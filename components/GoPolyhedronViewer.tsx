@@ -41,20 +41,22 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
   const onPlaceStoneRef = useRef(onPlaceStone)
   const onRemoveGroupRef = useRef(onRemoveGroup)
   const onStateChangeRef = useRef(onStateChange)
+  const gameRef = useRef(game)
   
-  // Update refs when callbacks change
+  // Update refs when callbacks or game change
   useEffect(() => {
     onPlaceStoneRef.current = onPlaceStone
     onRemoveGroupRef.current = onRemoveGroup
     onStateChangeRef.current = onStateChange
-  }, [onPlaceStone, onRemoveGroup, onStateChange])
+    gameRef.current = game
+  }, [onPlaceStone, onRemoveGroup, onStateChange, game])
   
   /**
    * Updates sphere colors based on current game board state.
    * Called when game state changes.
    */
   const updateSphereColors = () => {
-    const board = game.getBoard()
+    const board = gameRef.current.getBoard()
     const entries = Array.from(stonesRef.current.entries())
     for (const [vertexIndex, sphere] of entries) {
       const color = board.get(vertexIndex)
@@ -156,10 +158,10 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
     }
     
     // Add aura to the last played stone (only if it still exists and has a stone)
-    const lastPlayedIndex = game.getLastPlayedVertex()
+    const lastPlayedIndex = gameRef.current.getLastPlayedVertex()
     if (lastPlayedIndex !== null && vertexGroupRef.current) {
       const stone = stonesRef.current.get(lastPlayedIndex)
-      const board = game.getBoard()
+      const board = gameRef.current.getBoard()
       const color = board.get(lastPlayedIndex)
       
       // Only add aura if the stone still exists (not removed/captured)
@@ -945,8 +947,8 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
             const vertexIndex = clickedSphere.userData.vertexIndex
             const material = clickedSphere.material as THREE.MeshStandardMaterial
             
-            // Check if game is over
-            const isGameOver = game.isGameOver()
+            // Check if game is over (use ref to get latest game state)
+            const isGameOver = gameRef.current.isGameOver()
             
             if (isGameOver) {
               // Game is over - allow removing groups by clicking on any vertex with a stone
@@ -1092,7 +1094,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
   
   // Update sphere colors and aura when game state changes
   useEffect(() => {
-    if (game && stonesRef.current.size > 0) {
+    if (gameRef.current && stonesRef.current.size > 0) {
       updateSphereColors()
       updateAura()
     }
