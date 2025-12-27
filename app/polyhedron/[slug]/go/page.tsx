@@ -1,24 +1,38 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { notFound } from 'next/navigation'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { notFound, useSearchParams, useRouter } from 'next/navigation'
 import GoPolyhedronViewer from '@/components/GoPolyhedronViewer'
 import GoGameControls from '@/components/GoGameControls'
 import GoGameStatus from '@/components/GoGameStatus'
 import GoGameOver from '@/components/GoGameOver'
 import GoErrorMessage from '@/components/GoErrorMessage'
+import GoInviteDialog from '@/components/GoInviteDialog'
+import GoPlayerRoleIndicator from '@/components/GoPlayerRoleIndicator'
+import GoSyncWarning from '@/components/GoSyncWarning'
 import { polyhedraData } from '@/lib/polyhedronUtils'
 import { parsePolyhedronData } from '@/lib/polyhedronUtils'
 import { GoGame } from '@/lib/goGame'
+import { GameSyncAdapter } from '@/lib/gameSync/GameSyncAdapter'
+import { LocalGameSync } from '@/lib/gameSync/LocalGameSync'
+import { WebSocketGameSync } from '@/lib/gameSync/WebSocketGameSync'
 
-export default function GoPolyhedronPage({ params }: { params: { slug: string } }) {
+export default function GoPolyhedronPage({ params }: { params: { slug: string; sessionId?: string } }) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const sessionId = params.sessionId || undefined
   const polyhedron = polyhedraData.find((p) => p.slug === params.slug)
   const [game, setGame] = useState<GoGame | null>(null)
+  const [gameSync, setGameSync] = useState<GameSyncAdapter | null>(null)
+  const [playerRole, setPlayerRole] = useState<'black' | 'white' | 'both' | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [ownershipError, setOwnershipError] = useState<string | null>(null)
+  const [syncWarning, setSyncWarning] = useState<string | null>(null)
+  const [showInviteDialog, setShowInviteDialog] = useState(false)
   const [updateTrigger, setUpdateTrigger] = useState(0)
+  const gameSyncRef = useRef<GameSyncAdapter | null>(null)
 
-  // Initialize game when polyhedron data is loaded
+  // Initialize game and sync adapter when polyhedron data is loaded
   useEffect(() => {
     if (!polyhedron) return
 
@@ -30,6 +44,44 @@ export default function GoPolyhedronPage({ params }: { params: { slug: string } 
         
         const newGame = new GoGame(data.vertices, data.edges)
         setGame(newGame)
+
+        // Initialize sync adapter based on URL params
+        const role = searchParams?.get('role') as 'black' | 'white' | null
+
+        let sync: GameSyncAdapter
+        if (sessionId && role) {
+          // Remote multiplayer
+          sync = new WebSocketGameSync(newGame, sessionId, role)
+          setPlayerRole(role)
+        } else {
+          // Local multiplayer
+          sync = new LocalGameSync(newGame)
+          setPlayerRole('both')
+        }
+
+        gameSyncRef.current = sync
+        setGameSync(sync)
+
+        // Set up event handlers
+        sync.onMove(() => handleStateChange())
+        sync.onPass(() => handleStateChange())
+        sync.onUndo(() => handleStateChange())
+        sync.onRedo(() => handleStateChange())
+        sync.onRemoveGroup(() => handleStateChange())
+        sync.onMarkOwnership(() => handleStateChange())
+        sync.onStateChange(() => handleStateChange())
+        sync.onError((error) => {
+          setErrorMessage(error)
+        })
+        sync.onHashMismatch((warning) => {
+          setSyncWarning(warning)
+        })
+        sync.onStateSync(() => handleStateChange())
+
+        // Request sync if remote
+        if (sessionId && role) {
+          sync.requestSync()
+        }
       } catch (error) {
         console.error('Failed to initialize game:', error)
         setErrorMessage('Failed to load polyhedron data')
@@ -37,36 +89,48 @@ export default function GoPolyhedronPage({ params }: { params: { slug: string } 
     }
 
     initGame()
-  }, [polyhedron])
+
+    // Cleanup on unmount
+    return () => {
+      if (gameSyncRef.current) {
+        gameSyncRef.current.disconnect()
+      }
+    }
+  }, [polyhedron, params.sessionId, searchParams])
 
   const handlePlaceStone = (vertexIndex: number) => {
-    if (!game) return
+    if (!game || !gameSync) return
 
-    const result = game.makeMove(vertexIndex)
-    
-    if (!result.legal) {
-      // Show error message
-      setErrorMessage(result.reason || 'Illegal move')
-    } else {
-      // Clear any previous error
-      setErrorMessage(null)
+    // Check if it's player's turn
+    const canMove = playerRole === 'both' || playerRole === game.getCurrentPlayer()
+    if (!canMove) {
+      setErrorMessage('Not your turn')
+      return
     }
-    
-    // Trigger re-render
-    setUpdateTrigger(prev => prev + 1)
+
+    // Send move through sync adapter
+    gameSync.sendMove(vertexIndex).then(result => {
+      if (!result.success) {
+        setErrorMessage(result.reason || 'Illegal move')
+      } else {
+        setErrorMessage(null)
+        setUpdateTrigger(prev => prev + 1)
+      }
+    })
   }
 
   const handleRemoveGroup = (vertexIndex: number) => {
-    if (!game) return
+    if (!game || !gameSync) return
 
-    const success = game.removeGroup(vertexIndex)
-    
-    if (success) {
-      // Clear any previous error
-      setErrorMessage(null)
-      // Trigger re-render
-      setUpdateTrigger(prev => prev + 1)
-    }
+    // Send remove group through sync adapter
+    gameSync.sendRemoveGroup(vertexIndex).then(result => {
+      if (result.success) {
+        setErrorMessage(null)
+        setUpdateTrigger(prev => prev + 1)
+      } else {
+        setErrorMessage(result.reason || 'Cannot remove group')
+      }
+    })
   }
 
   const handleStateChange = useCallback(() => {
@@ -93,25 +157,51 @@ export default function GoPolyhedronPage({ params }: { params: { slug: string } 
   }, [game])
 
   const handlePass = useCallback(() => {
-    if (!game) return
+    if (!game || !gameSync) return
     if (game.isGameOver()) return
-    game.pass()
-    handleStateChange()
-  }, [game, handleStateChange])
+
+    // Check if it's player's turn
+    const canMove = playerRole === 'both' || playerRole === game.getCurrentPlayer()
+    if (!canMove) {
+      setErrorMessage('Not your turn')
+      return
+    }
+
+    gameSync.sendPass().then(result => {
+      if (result.success) {
+        handleStateChange()
+      } else {
+        setErrorMessage(result.reason || 'Cannot pass')
+      }
+    })
+  }, [game, gameSync, playerRole, handleStateChange])
 
   const handleUndo = useCallback(() => {
-    if (!game) return
-    if (game.undo()) {
-      handleStateChange()
-    }
-  }, [game, handleStateChange])
+    if (!game || !gameSync) return
+    gameSync.sendUndo().then(result => {
+      if (result.success) {
+        handleStateChange()
+      }
+    })
+  }, [gameSync, handleStateChange])
 
   const handleRedo = useCallback(() => {
-    if (!game) return
-    if (game.redo()) {
-      handleStateChange()
-    }
-  }, [game, handleStateChange])
+    if (!game || !gameSync) return
+    gameSync.sendRedo().then(result => {
+      if (result.success) {
+        handleStateChange()
+      }
+    })
+  }, [gameSync, handleStateChange])
+
+  const handleMarkOwnership = useCallback(() => {
+    if (!game || !gameSync) return
+    gameSync.sendMarkOwnership().then(result => {
+      if (result.success) {
+        handleStateChange()
+      }
+    })
+  }, [gameSync, handleStateChange])
 
   // Keyboard shortcuts: P for pass, U for undo, R for redo
   useEffect(() => {
@@ -156,11 +246,71 @@ export default function GoPolyhedronPage({ params }: { params: { slug: string } 
         onRemoveGroup={handleRemoveGroup}
         onStateChange={handleStateChange}
         updateTrigger={updateTrigger}
+        canMakeMove={playerRole === 'both' || (game && playerRole === game.getCurrentPlayer())}
       />
       <GoGameStatus game={game} />
-      <GoGameControls game={game} onStateChange={handleStateChange} />
+      <GoGameControls 
+        game={game} 
+        onStateChange={handleStateChange}
+        onPass={handlePass}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onMarkOwnership={handleMarkOwnership}
+        canMakeMove={playerRole === 'both' || (game && playerRole === game.getCurrentPlayer())}
+      />
       <GoGameOver game={game} />
       <GoErrorMessage message={errorMessage || ownershipError} />
+      <GoInviteDialog
+        open={showInviteDialog}
+        onClose={() => setShowInviteDialog(false)}
+        polyhedronSlug={params.slug}
+      />
+      <GoPlayerRoleIndicator role={playerRole} />
+      <GoSyncWarning message={syncWarning} />
+      {!sessionId && (
+        <button
+          onClick={() => setShowInviteDialog(true)}
+          className="invite-button"
+          style={{
+            position: 'fixed',
+            bottom: '2rem',
+            left: '2rem',
+            background: 'rgba(102, 126, 234, 0.2)',
+            border: '1px solid #667eea',
+            color: '#ffffff',
+            padding: '0.75rem 1.5rem',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            transition: 'background 0.2s ease',
+            fontWeight: 500,
+            zIndex: 20
+          }}
+        >
+          Invite
+        </button>
+      )}
+      <button
+        onClick={() => router.push('/')}
+        className="back-to-main-button"
+        style={{
+          position: 'fixed',
+          bottom: '2rem',
+          right: '2rem',
+          background: 'rgba(102, 126, 234, 0.2)',
+          border: '1px solid #667eea',
+          color: '#ffffff',
+          padding: '0.75rem 1.5rem',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          fontSize: '1rem',
+          transition: 'background 0.2s ease',
+          fontWeight: 500,
+          zIndex: 20
+        }}
+      >
+        Back to Main
+      </button>
     </div>
   )
 }

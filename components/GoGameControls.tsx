@@ -8,34 +8,46 @@ interface GoGameControlsProps {
   
   /** Callback when game state changes (to trigger re-render) */
   onStateChange: () => void
+  
+  /** Callback for pass action */
+  onPass?: () => void
+  
+  /** Callback for undo action */
+  onUndo?: () => void
+  
+  /** Callback for redo action */
+  onRedo?: () => void
+  
+  /** Callback for mark ownership action */
+  onMarkOwnership?: () => void
+  
+  /** Whether the current player can make moves */
+  canMakeMove?: boolean
 }
 
 /**
  * Control buttons for the Go game.
  * Provides pass, undo, redo, and reset functionality.
  */
-export default function GoGameControls({ game, onStateChange }: GoGameControlsProps) {
-  const handlePass = () => {
-    game.pass()
-    onStateChange()
-  }
-
+export default function GoGameControls({ 
+  game, 
+  onStateChange, 
+  onPass,
+  onUndo,
+  onRedo,
+  onMarkOwnership,
+  canMakeMove = true 
+}: GoGameControlsProps) {
   const handleDone = () => {
-    const success = game.markOwnership()
-    if (success) {
-      onStateChange()
-    }
-  }
-
-  const handleUndo = () => {
-    if (game.undo()) {
-      onStateChange()
-    }
-  }
-
-  const handleRedo = () => {
-    if (game.redo()) {
-      onStateChange()
+    if (onMarkOwnership) {
+      // Use sync adapter to send to other player
+      onMarkOwnership()
+    } else {
+      // Local game - just mark ownership locally
+      const success = game.markOwnership()
+      if (success) {
+        onStateChange()
+      }
     }
   }
 
@@ -59,22 +71,22 @@ export default function GoGameControls({ game, onStateChange }: GoGameControlsPr
         </button>
       ) : (
         <button
-          onClick={handlePass}
-          disabled={isGameOver}
+          onClick={onPass}
+          disabled={isGameOver || !canMakeMove}
           className="pass-button"
         >
           Pass
         </button>
       )}
       <button
-        onClick={handleUndo}
+        onClick={onUndo}
         disabled={!canUndo}
         className="undo-button"
       >
         Undo
       </button>
       <button
-        onClick={handleRedo}
+        onClick={onRedo}
         disabled={!canRedo}
         className="redo-button"
       >

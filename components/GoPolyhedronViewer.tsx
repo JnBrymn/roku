@@ -48,9 +48,11 @@ interface GoPolyhedronViewerProps {
   onStateChange: () => void
   /** Update trigger to force re-render when game state changes */
   updateTrigger?: number
+  /** Whether the current player can make moves */
+  canMakeMove?: boolean
 }
 
-export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone, onRemoveGroup, onStateChange, updateTrigger }: GoPolyhedronViewerProps) {
+export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone, onRemoveGroup, onStateChange, updateTrigger, canMakeMove = true }: GoPolyhedronViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const rotationRef = useRef({ pitch: 0, yaw: 0 })
   const keysRef = useRef<Set<string>>(new Set())
@@ -65,6 +67,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
   const onRemoveGroupRef = useRef(onRemoveGroup)
   const onStateChangeRef = useRef(onStateChange)
   const gameRef = useRef(game)
+  const canMakeMoveRef = useRef(canMakeMove)
   
   // Update refs when callbacks or game change
   useEffect(() => {
@@ -72,7 +75,8 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
     onRemoveGroupRef.current = onRemoveGroup
     onStateChangeRef.current = onStateChange
     gameRef.current = game
-  }, [onPlaceStone, onRemoveGroup, onStateChange, game])
+    canMakeMoveRef.current = canMakeMove
+  }, [onPlaceStone, onRemoveGroup, onStateChange, game, canMakeMove])
   
   /**
    * Updates sphere colors based on current game board state.
@@ -1034,6 +1038,10 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
               // Game is active - only allow placing stones on empty (null) vertices
               // Ownership states shouldn't exist during active play, but check anyway
               if (state === null) {
+                // Check if player can make moves
+                if (!canMakeMoveRef.current) {
+                  return // Not player's turn
+                }
                 // Emit placeStone event - parent component will validate and update game state
                 onPlaceStoneRef.current(vertexIndex)
               }
@@ -1176,11 +1184,15 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
   }, [game, onStateChange, updateTrigger])
 
   const isGameOver = game.isGameOver()
+  
+  // Check if there are any empty vertices (null) - if not, ownership has been marked
+  const board = game.getBoard()
+  const hasEmptyVertices = Array.from(board.values()).some(state => state === null)
 
   return (
     <div className="fullscreen-viewer">
       <div ref={containerRef} className="fullscreen-canvas" style={{ position: 'relative' }}>
-        {isGameOver && (
+        {isGameOver && hasEmptyVertices && (
           <div style={{
             position: 'absolute',
             top: '50%',

@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { GoGame } from '@/lib/goGame'
 
 interface GoGameOverProps {
@@ -11,10 +10,9 @@ interface GoGameOverProps {
 /**
  * Displays Game Over screen with final scores.
  * Only visible when game is over.
- * Shows at bottom right with "Return to Main" button.
+ * Shows at bottom right above the "Back to Main" button.
  */
 export default function GoGameOver({ game }: GoGameOverProps) {
-  const router = useRouter()
   const isGameOver = game.isGameOver()
   
   // Check if ownership has been marked (no empty vertices)
@@ -39,10 +37,6 @@ export default function GoGameOver({ game }: GoGameOverProps) {
   // Determine winner
   const winner = blackTotal > whiteTotal ? 'Black' : whiteTotal > blackTotal ? 'White' : 'Tie'
   
-  const handleReturnToMain = () => {
-    router.push('/')
-  }
-  
   return (
     <div className="go-game-over">
       <div className="game-over-title">Game Over</div>
@@ -63,9 +57,6 @@ export default function GoGameOver({ game }: GoGameOverProps) {
           {winner === 'Tie' ? 'Tie Game' : `${winner} Wins!`}
         </div>
       </div>
-      <button onClick={handleReturnToMain} className="return-to-main-button">
-        Return to Main
-      </button>
     </div>
   )
 }

@@ -60,6 +60,28 @@ export interface MoveValidationResult {
 }
 
 /**
+ * Serialized move for transmission (without large board snapshots).
+ */
+export interface SerializedMove {
+  vertexIndex: number | null
+  color: StoneColor
+  captures: number[]
+  boardHash: string
+}
+
+/**
+ * Serialized game state for transmission.
+ */
+export interface GameState {
+  board: Record<number, VertexState>
+  moveHistory: SerializedMove[]
+  currentPlayer: StoneColor
+  gameOver: boolean
+  consecutivePasses: number
+  lastPlayedVertex: number | null
+}
+
+/**
  * Main Go game class.
  * Manages game state, validates moves, handles captures, and enforces rules.
  */
@@ -183,6 +205,15 @@ export class GoGame {
     const entries = Array.from(this.board.entries()).sort((a, b) => a[0] - b[0])
     // Serialize: "0:null,1:black,2:white,..."
     return entries.map(([v, c]) => `${v}:${c}`).join(',')
+  }
+
+  /**
+   * Public method to get board hash for synchronization.
+   * 
+   * @returns String representation of the board state
+   */
+  getBoardHash(): string {
+    return this.serializeBoard()
   }
 
   /**
@@ -1297,6 +1328,65 @@ export class GoGame {
     this.boardStateHashes.add(boardHash)
     
     return true
+  }
+
+  /**
+   * Serializes the current game state for transmission.
+   * 
+   * @returns Serialized game state
+   */
+  serialize(): GameState {
+    return {
+      board: Object.fromEntries(this.board),
+      moveHistory: this.moveHistory.map(m => ({
+        vertexIndex: m.vertexIndex,
+        color: m.color,
+        captures: m.captures,
+        boardHash: m.boardHash
+      })),
+      currentPlayer: this.currentPlayer,
+      gameOver: this.gameOver,
+      consecutivePasses: this.consecutivePasses,
+      lastPlayedVertex: this.lastPlayedVertex
+    }
+  }
+
+  /**
+   * Applies a serialized game state to restore game from transmission.
+   * 
+   * @param state Serialized game state to apply
+   */
+  applyState(state: GameState): void {
+    // Restore board
+    this.board = new Map(Object.entries(state.board).map(([k, v]) => [Number(k), v as VertexState]))
+    
+    // Restore move history (simplified - without boardBefore/boardAfter)
+    this.moveHistory = state.moveHistory.map(m => {
+      return new Move(
+        m.vertexIndex,
+        m.color,
+        m.captures,
+        new Map(), // boardBefore - not needed for sync
+        new Map(), // boardAfter - not needed for sync
+        m.boardHash
+      )
+    })
+    
+    // Restore other state
+    this.currentPlayer = state.currentPlayer
+    this.gameOver = state.gameOver
+    this.consecutivePasses = state.consecutivePasses
+    this.lastPlayedVertex = state.lastPlayedVertex
+    
+    // Recalculate history index
+    this.historyIndex = this.moveHistory.length - 1
+    
+    // Recalculate board state hashes (for Ko rule)
+    this.boardStateHashes = new Set()
+    for (const move of this.moveHistory) {
+      this.boardStateHashes.add(move.boardHash)
+    }
+    this.boardStateHashes.add(this.serializeBoard())
   }
 }
 

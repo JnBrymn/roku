@@ -277,7 +277,7 @@ canvas {
 
 .go-game-over {
   position: fixed;
-  bottom: 2rem;
+  bottom: 6rem;
   right: 2rem;
   background: rgba(26, 26, 26, 0.95);
   padding: 1.5rem 2rem;
@@ -328,22 +328,12 @@ canvas {
   color: #667eea;
 }
 
-.go-game-over .return-to-main-button {
-  width: 100%;
-  background: rgba(102, 126, 234, 0.2);
-  border: 1px solid #667eea;
-  color: #ffffff;
-  padding: 0.75rem 1.5rem;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: background 0.2s ease;
-  font-weight: 500;
-  margin-top: 1rem;
+.back-to-main-button:hover {
+  background: rgba(102, 126, 234, 0.3) !important;
 }
 
-.go-game-over .return-to-main-button:hover {
-  background: rgba(102, 126, 234, 0.3);
+.invite-button:hover {
+  background: rgba(102, 126, 234, 0.3) !important;
 }
 
 .go-game-controls button {
