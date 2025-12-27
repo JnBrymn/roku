@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 interface GoInviteDialogProps {
@@ -10,32 +9,18 @@ interface GoInviteDialogProps {
 }
 
 export default function GoInviteDialog({ open, onClose, polyhedronSlug }: GoInviteDialogProps) {
-  const [copied, setCopied] = useState(false)
   const router = useRouter()
 
   if (!open) return null
 
-  const handleRoleSelect = async (otherPlayerRole: 'black' | 'white') => {
+  const handleRoleSelect = (otherPlayerRole: 'black' | 'white') => {
     // Generate session ID
     const sessionId = crypto.randomUUID()
     
-    // Create URL for the other player with their selected role
-    const url = `${window.location.origin}/polyhedron/${polyhedronSlug}/go/${sessionId}?role=${otherPlayerRole}`
-    
-    // Copy to clipboard
-    try {
-      await navigator.clipboard.writeText(url)
-      setCopied(true)
-      
-      // Navigate to new session with opposite role (your role)
-      const yourRole = otherPlayerRole === 'black' ? 'white' : 'black'
-      router.push(`/polyhedron/${polyhedronSlug}/go/${sessionId}?role=${yourRole}`)
-    } catch (error) {
-      console.error('Failed to copy to clipboard:', error)
-      // Still navigate even if copy fails
-      const yourRole = otherPlayerRole === 'black' ? 'white' : 'black'
-      router.push(`/polyhedron/${polyhedronSlug}/go/${sessionId}?role=${yourRole}`)
-    }
+    // Navigate to new session with opposite role (your role)
+    // Add invite flag and otherRole param so we can copy the other player's URL on page load
+    const yourRole = otherPlayerRole === 'black' ? 'white' : 'black'
+    router.push(`/polyhedron/${polyhedronSlug}/go/${sessionId}?role=${yourRole}&invited=true&otherRole=${otherPlayerRole}`)
   }
 
   return (
@@ -98,11 +83,6 @@ export default function GoInviteDialog({ open, onClose, polyhedronSlug }: GoInvi
             White
           </button>
         </div>
-        {copied && (
-          <p style={{ marginTop: '1rem', color: 'green' }}>
-            URL copied to clipboard! Share with your opponent.
-          </p>
-        )}
         <button
           onClick={onClose}
           style={{

@@ -11,6 +11,7 @@ import GoInviteDialog from '@/components/GoInviteDialog'
 import GoPlayerRoleIndicator from '@/components/GoPlayerRoleIndicator'
 import GoSyncWarning from '@/components/GoSyncWarning'
 import GoPassNotification from '@/components/GoPassNotification'
+import GoClipboardNotification from '@/components/GoClipboardNotification'
 import { polyhedraData } from '@/lib/polyhedronUtils'
 import { parsePolyhedronData } from '@/lib/polyhedronUtils'
 import { GoGame } from '@/lib/goGame'
@@ -32,6 +33,7 @@ export default function GoPolyhedronPage({ params }: { params: { slug: string; s
   const [showInviteDialog, setShowInviteDialog] = useState(false)
   const [updateTrigger, setUpdateTrigger] = useState(0)
   const [passNotificationPlayer, setPassNotificationPlayer] = useState<'black' | 'white' | null>(null)
+  const [showClipboardNotification, setShowClipboardNotification] = useState(false)
   const gameSyncRef = useRef<GameSyncAdapter | null>(null)
 
   // Initialize game and sync adapter when polyhedron data is loaded
@@ -218,6 +220,33 @@ export default function GoPolyhedronPage({ params }: { params: { slug: string; s
     })
   }, [gameSync, handleStateChange])
 
+  // Copy other player's URL to clipboard when page loads after invite
+  useEffect(() => {
+    if (sessionId && searchParams) {
+      const invited = searchParams.get('invited')
+      const otherRole = searchParams.get('otherRole') as 'black' | 'white' | null
+      
+      if (invited === 'true' && otherRole) {
+        // Create URL for the other player
+        const otherPlayerUrl = `${window.location.origin}/polyhedron/${params.slug}/go/${sessionId}?role=${otherRole}`
+        
+        // Copy to clipboard
+        navigator.clipboard.writeText(otherPlayerUrl)
+          .then(() => {
+            setShowClipboardNotification(true)
+            // Remove the query params from URL to avoid re-copying on refresh
+            const newUrl = new URL(window.location.href)
+            newUrl.searchParams.delete('invited')
+            newUrl.searchParams.delete('otherRole')
+            window.history.replaceState({}, '', newUrl.toString())
+          })
+          .catch((error) => {
+            console.error('Failed to copy to clipboard:', error)
+          })
+      }
+    }
+  }, [sessionId, searchParams, params.slug])
+
   // Keyboard shortcuts: P for pass, U for undo, R for redo
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -276,6 +305,7 @@ export default function GoPolyhedronPage({ params }: { params: { slug: string; s
       <GoGameOver game={game} />
       <GoErrorMessage message={errorMessage || ownershipError} />
       <GoPassNotification player={passNotificationPlayer} />
+      <GoClipboardNotification show={showClipboardNotification} />
       <GoInviteDialog
         open={showInviteDialog}
         onClose={() => setShowInviteDialog(false)}
