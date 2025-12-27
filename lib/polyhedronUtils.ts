@@ -75,9 +75,6 @@ export function createWireframeGeometry(vertices: number[][], edges: number[][])
 
 export const polyhedraData = [
   // Platonic Solids
-  { file: '/data/tetrahedron.txt', name: 'Tetrahedron', slug: 'tetrahedron' },
-  { file: '/data/cube.txt', name: 'Cube', slug: 'cube' },
-  { file: '/data/octahedron.txt', name: 'Octahedron', slug: 'octahedron' },
   { file: '/data/dodecahedron.txt', name: 'Dodecahedron', slug: 'dodecahedron' },
   { file: '/data/icosahedron.txt', name: 'Icosahedron', slug: 'icosahedron' },
   // Near-miss Johnson Solids

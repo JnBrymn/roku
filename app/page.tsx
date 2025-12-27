@@ -10,7 +10,7 @@ export default function Home() {
     const preventDrag = (e: Event) => {
       const target = e.target as HTMLElement
       // Allow clicks on polyhedron cards for navigation
-      if (target.closest('.polyhedron-card')) {
+      if (target && typeof target.closest === 'function' && target.closest('.polyhedron-card')) {
         return
       }
       // Prevent other mouse interactions

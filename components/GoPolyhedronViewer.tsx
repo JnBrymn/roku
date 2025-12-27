@@ -32,8 +32,11 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
   const rotationRef = useRef({ pitch: 0, yaw: 0 })
   const keysRef = useRef<Set<string>>(new Set())
   const stonesRef = useRef<Map<number, THREE.Mesh>>(new Map())
+  const clonedStonesRef = useRef<Map<number, THREE.Mesh>>(new Map())
   const auraRef = useRef<THREE.Mesh | null>(null)
+  const clonedAuraRef = useRef<THREE.Mesh | null>(null)
   const vertexGroupRef = useRef<THREE.Group | null>(null)
+  const clonedVertexGroupRef = useRef<THREE.Group | null>(null)
   // Store callbacks in refs to prevent re-renders when they change
   const onPlaceStoneRef = useRef(onPlaceStone)
   const onRemoveGroupRef = useRef(onRemoveGroup)
@@ -58,28 +61,65 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
       const material = sphere.material as THREE.MeshStandardMaterial
       
       if (color === null) {
-        // Empty vertex - grey (lighter)
+        // Empty vertex - grey (lighter) and slightly transparent
         material.color.setHex(0xAAAAAA)
         // Reset emissive properties that were set for white stones
         material.emissive.setHex(0x000000)
         material.emissiveIntensity = 0
-        material.metalness = 0.3
-        material.roughness = 0.7
+        material.metalness = 0.0
+        material.roughness = 1.0 // Specular/shiny finish
+        material.transparent = true
+        material.opacity = 0.7
       } else if (color === 'black') {
-        // Black stone
+        // Black stone - opaque
         material.color.setHex(0x000000)
         // Reset emissive properties
         material.emissive.setHex(0x000000)
         material.emissiveIntensity = 0
-        material.metalness = 0.3
-        material.roughness = 0.7
+        material.metalness = 0.0
+        material.roughness = 0.3 // Specular/shiny finish
+        material.transparent = false
+        material.opacity = 1.0
       } else if (color === 'white') {
-        // White stone - extremely white with maximum emissive glow
-        material.color.setHex(0xffffff)
-        material.emissive.setHex(0xffffff)
+        // White stone - bright white to show specularity, opaque
+        material.color.setHex(0xFFFFFF)
+        material.emissive.setHex(0x000000)
         material.emissiveIntensity = 1.5
         material.metalness = 0.0
-        material.roughness = 0.1
+        material.roughness = 0.3 // Specular/shiny finish
+        material.transparent = false
+        material.opacity = 1.0
+      }
+      
+      // Update cloned sphere with same color
+      const clonedSphere = clonedStonesRef.current.get(vertexIndex)
+      if (clonedSphere) {
+        const clonedMaterial = clonedSphere.material as THREE.MeshStandardMaterial
+        if (color === null) {
+          clonedMaterial.color.setHex(0xAAAAAA)
+          clonedMaterial.emissive.setHex(0x000000)
+          clonedMaterial.emissiveIntensity = 0
+          clonedMaterial.metalness = 0.0
+          clonedMaterial.roughness = 1.0
+          clonedMaterial.transparent = true
+          clonedMaterial.opacity = 0.7
+        } else if (color === 'black') {
+          clonedMaterial.color.setHex(0x000000)
+          clonedMaterial.emissive.setHex(0x000000)
+          clonedMaterial.emissiveIntensity = 0
+          clonedMaterial.metalness = 0.0
+          clonedMaterial.roughness = 0.3
+          clonedMaterial.transparent = false
+          clonedMaterial.opacity = 1.0
+        } else if (color === 'white') {
+          clonedMaterial.color.setHex(0xFFFFFF)
+          clonedMaterial.emissive.setHex(0x000000)
+          clonedMaterial.emissiveIntensity = 1.5
+          clonedMaterial.metalness = 0.0
+          clonedMaterial.roughness = 0.3
+          clonedMaterial.transparent = false
+          clonedMaterial.opacity = 1.0
+        }
       }
     }
   }
@@ -100,6 +140,19 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
         }
       }
       auraRef.current = null
+    }
+    
+    // Remove previous cloned aura if it exists
+    if (clonedAuraRef.current) {
+      const parent = clonedAuraRef.current.parent
+      if (parent) {
+        parent.remove(clonedAuraRef.current)
+        clonedAuraRef.current.geometry.dispose()
+        if (clonedAuraRef.current.material instanceof THREE.Material) {
+          clonedAuraRef.current.material.dispose()
+        }
+      }
+      clonedAuraRef.current = null
     }
     
     // Add aura to the last played stone (only if it still exists and has a stone)
@@ -123,12 +176,40 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
         })
         const aura = new THREE.Mesh(auraGeometry, auraMaterial)
         
-        // Position aura at the same location as the stone (relative to stone's parent)
-        aura.position.copy(stone.position)
+        // Position aura slightly closer to the center than the stone
+        // Interpolate 25% towards the origin (center of big sphere)
+        aura.position.copy(stone.position).lerp(new THREE.Vector3(0, 0, 0), 0.03)
         
         // Add aura to the vertex group
         vertexGroupRef.current.add(aura)
         auraRef.current = aura
+        
+        // Create cloned aura if cloned vertex group exists
+        if (clonedVertexGroupRef.current) {
+          const clonedStone = clonedStonesRef.current.get(lastPlayedIndex)
+          if (clonedStone) {
+            const cloneScale = 3.0 // Match the cloned wireframe scale
+            const clonedAuraGeometry = new THREE.SphereGeometry(0.08 * cloneScale, 32, 32)
+            const clonedAuraMaterial = new THREE.MeshStandardMaterial({
+              color: 0xffff00, // Yellow
+              emissive: 0xffff00,
+              emissiveIntensity: 0.8,
+              transparent: true,
+              opacity: 0.6,
+              side: THREE.DoubleSide,
+              clippingPlanes: [new THREE.Plane(new THREE.Vector3(6, 6, 6).normalize().negate(), 0)]
+            })
+            const clonedAura = new THREE.Mesh(clonedAuraGeometry, clonedAuraMaterial)
+            
+            // Position cloned aura 4% further away from center than the stone
+            const stoneDirection = clonedStone.position.clone().normalize()
+            const stoneDistance = clonedStone.position.length()
+            clonedAura.position.copy(stoneDirection.multiplyScalar(stoneDistance * 1.04))
+            
+            clonedVertexGroupRef.current.add(clonedAura)
+            clonedAuraRef.current = clonedAura
+          }
+        }
       }
     }
   }
@@ -170,6 +251,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
     let camera: THREE.PerspectiveCamera
     let renderer: THREE.WebGLRenderer
     let wireframe: LineSegments2 | THREE.LineSegments
+    let clonedWireframe: LineSegments2 | THREE.LineSegments | null = null
     let animationId: number
     let handleResize: () => void
     let handleKeyDown: (e: KeyboardEvent) => void
@@ -178,6 +260,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
     let raycaster: THREE.Raycaster
     let vertexSpheres: THREE.Mesh[] = []
     let vertexGroup: THREE.Group
+    let clonedVertexGroup: THREE.Group | null = null
     let polyhedronData: { vertices: number[][], edges: number[][] }
     let midradiusSphere: THREE.Mesh | null = null
     let squareArcs: Line2[] = []
@@ -196,7 +279,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
 
       // Create scene
       scene = new THREE.Scene()
-      scene.background = new THREE.Color(0x808080)
+      scene.background = new THREE.Color(0x202020)
 
       // Create camera
       const width = window.innerWidth
@@ -215,6 +298,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
       
       renderer = new THREE.WebGLRenderer({ antialias: true })
       renderer.setSize(width, height)
+      renderer.localClippingEnabled = true
       containerRef.current?.appendChild(renderer.domElement)
 
       // Calculate the initial rotation matrix to align with screen coordinates
@@ -262,42 +346,51 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
       
       scene.add(wireframe)
 
+      // Create a 3x scaled clone of the polyhedron (25% smaller than 4x)
+      const cloneScale = 3.0
+      const clonedPositions: number[] = []
+      for (let i = 0; i < geometryAttributes.count; i += 2) {
+        const x1 = geometryAttributes.getX(i) * cloneScale
+        const y1 = geometryAttributes.getY(i) * cloneScale
+        const z1 = geometryAttributes.getZ(i) * cloneScale
+        const x2 = geometryAttributes.getX(i + 1) * cloneScale
+        const y2 = geometryAttributes.getY(i + 1) * cloneScale
+        const z2 = geometryAttributes.getZ(i + 1) * cloneScale
+        clonedPositions.push(x1, y1, z1, x2, y2, z2)
+      }
+      
+      const clonedLineGeometry = new LineSegmentsGeometry()
+      clonedLineGeometry.setPositions(clonedPositions)
+      
+      const clonedLineMaterial = new LineMaterial({
+        color: 0x000000,
+        linewidth: 4,
+        resolution: new THREE.Vector2(width, height),
+        clippingPlanes: []
+      })
+      
+      // Create a clipping plane to show only the front half
+      // Camera is at (6, 6, 6) looking at (0, 0, 0), so direction from origin to camera is (1, 1, 1) normalized
+      // We want to keep the front half, so plane normal points away from camera
+      const clippingPlane = new THREE.Plane(viewDirection.clone().negate(), 0) // Plane through origin, normal away from camera
+      clonedLineMaterial.clippingPlanes = [clippingPlane]
+      
+      clonedWireframe = new LineSegments2(clonedLineGeometry, clonedLineMaterial)
+      clonedWireframe.quaternion.copy(initialQuaternion)
+      scene.add(clonedWireframe)
+
       // Add midradius sphere at origin if midradius is defined
-      // Colored based on local radius direction (RGB mapping)
+      // Single go board color
       // Attached to wireframe so it rotates with local axes
       if (data.midradius !== undefined) {
         const sphereGeometry = new THREE.SphereGeometry(data.midradius, 64, 64)
         
-        // Custom shader material that colors based on direction vector (local radius direction)
-        // RGB = direction vector components, negative values are inverted
-        const sphereMaterial = new THREE.ShaderMaterial({
-          vertexShader: `
-            varying vec3 vDirection;
-            void main() {
-              // Use local position (relative to wireframe) for direction
-              vDirection = normalize(position);
-              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-          `,
-          fragmentShader: `
-            varying vec3 vDirection;
-            void main() {
-              // Get direction vector (local radius direction from origin)
-              vec3 dir = normalize(vDirection);
-              
-              // Map direction components to RGB: R=X, G=Y, B=Z
-              // Normalize from [-1, 1] to [0, 1]
-              vec3 rgb = dir * 0.5 + 0.5;
-              
-              // If component is negative, invert that color channel
-              vec3 inverted = 1.0 - rgb;
-              float r = dir.x < 0.0 ? inverted.x : rgb.x;
-              float g = dir.y < 0.0 ? inverted.y : rgb.y;
-              float b = dir.z < 0.0 ? inverted.z : rgb.z;
-              
-              gl_FragColor = vec4(r, g, b, 1.0);
-            }
-          `
+        // Simple material with go board color (light beige/tan)
+        // MeshStandardMaterial with low roughness for shiny/specular finish
+        const sphereMaterial = new THREE.MeshStandardMaterial({
+          color: 0xD2B48C, // Light brown (tan)
+          metalness: 0.0,
+          roughness: 0.3 // Low roughness for shiny/specular finish
         })
         
         midradiusSphere = new THREE.Mesh(sphereGeometry, sphereMaterial)
@@ -317,7 +410,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
         // Use a very small tube radius to make it appear as a line
         const ringGeometry = new THREE.TorusGeometry(circleRadius, 0.01, 16, 64)
         const ringMaterial = new THREE.MeshBasicMaterial({
-          color: 0x0000ff, // Blue
+          color: 0x000080, // Dark blue
           side: THREE.DoubleSide
         })
         const blueCircle = new THREE.Mesh(ringGeometry, ringMaterial)
@@ -335,7 +428,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
         const circleY = R * Math.cos(coneAngle) // Y position of circle center
         const greenRingGeometry = new THREE.TorusGeometry(circleRadius, 0.01, 16, 64)
         const greenRingMaterial = new THREE.MeshBasicMaterial({
-          color: 0x00ff00, // Green
+          color: 0x008000, // Dark green
           side: THREE.DoubleSide
         })
         const greenCircle = new THREE.Mesh(greenRingGeometry, greenRingMaterial)
@@ -352,7 +445,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
         const circleX = R * Math.cos(coneAngle) // X position of circle center
         const redRingGeometry = new THREE.TorusGeometry(circleRadius, 0.01, 16, 64)
         const redRingMaterial = new THREE.MeshBasicMaterial({
-          color: 0xff0000, // Red
+          color: 0x800000, // Dark red
           side: THREE.DoubleSide
         })
         const redCircle = new THREE.Mesh(redRingGeometry, redRingMaterial)
@@ -442,10 +535,10 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
           return new Line2(lineGeometry, lineMaterial)
         }
         
-        const squareArc1 = createArcLine(arc1Points, 0xff0000) // Red
-        const squareArc2 = createArcLine(arc2Points, 0xff0000) // Red
-        const squareArc3 = createArcLine(arc3Points, 0xff0000) // Red
-        const squareArc4 = createArcLine(arc4Points, 0xff0000) // Red
+        const squareArc1 = createArcLine(arc1Points, 0x800000) // Dark red
+        const squareArc2 = createArcLine(arc2Points, 0x800000) // Dark red
+        const squareArc3 = createArcLine(arc3Points, 0x800000) // Dark red
+        const squareArc4 = createArcLine(arc4Points, 0x800000) // Dark red
         
         squareArcs = [squareArc1, squareArc2, squareArc3, squareArc4]
         
@@ -470,10 +563,10 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
         const blueArc3Points = createGreatArc(blueV3, blueV4) // Top edge
         const blueArc4Points = createGreatArc(blueV4, blueV1) // Left edge
         
-        const blueSquareArc1 = createArcLine(blueArc1Points, 0x0000ff) // Blue
-        const blueSquareArc2 = createArcLine(blueArc2Points, 0x0000ff) // Blue
-        const blueSquareArc3 = createArcLine(blueArc3Points, 0x0000ff) // Blue
-        const blueSquareArc4 = createArcLine(blueArc4Points, 0x0000ff) // Blue
+        const blueSquareArc1 = createArcLine(blueArc1Points, 0x000080) // Dark blue
+        const blueSquareArc2 = createArcLine(blueArc2Points, 0x000080) // Dark blue
+        const blueSquareArc3 = createArcLine(blueArc3Points, 0x000080) // Dark blue
+        const blueSquareArc4 = createArcLine(blueArc4Points, 0x000080) // Dark blue
         
         squareArcs.push(blueSquareArc1, blueSquareArc2, blueSquareArc3, blueSquareArc4)
         
@@ -498,10 +591,10 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
         const greenArc3Points = createGreatArc(greenV3, greenV4) // Top edge
         const greenArc4Points = createGreatArc(greenV4, greenV1) // Left edge
         
-        const greenSquareArc1 = createArcLine(greenArc1Points, 0x00ff00) // Green
-        const greenSquareArc2 = createArcLine(greenArc2Points, 0x00ff00) // Green
-        const greenSquareArc3 = createArcLine(greenArc3Points, 0x00ff00) // Green
-        const greenSquareArc4 = createArcLine(greenArc4Points, 0x00ff00) // Green
+        const greenSquareArc1 = createArcLine(greenArc1Points, 0x008000) // Dark green
+        const greenSquareArc2 = createArcLine(greenArc2Points, 0x008000) // Dark green
+        const greenSquareArc3 = createArcLine(greenArc3Points, 0x008000) // Dark green
+        const greenSquareArc4 = createArcLine(greenArc4Points, 0x008000) // Dark green
         
         squareArcs.push(greenSquareArc1, greenSquareArc2, greenSquareArc3, greenSquareArc4)
         
@@ -509,36 +602,181 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
         wireframe.add(greenSquareArc2)
         wireframe.add(greenSquareArc3)
         wireframe.add(greenSquareArc4)
+
+        // Clone decorative elements (circles and squares) at 2x scale
+        const clonedR = R * cloneScale
+
+        // Create clipping plane for cloned elements (same as wireframe)
+        const clonedClippingPlane = new THREE.Plane(viewDirection.clone().negate(), 0)
+
+        // Clone blue circle
+        const clonedCircleZ = clonedR * Math.cos(coneAngle)
+        const clonedCircleRadius = clonedR * Math.sin(coneAngle)
+        const clonedBlueRingGeometry = new THREE.TorusGeometry(clonedCircleRadius, 0.01, 16, 64)
+        const clonedBlueCircleMaterial = ringMaterial.clone() as THREE.MeshBasicMaterial
+        clonedBlueCircleMaterial.clippingPlanes = [clonedClippingPlane]
+        const clonedBlueCircle = new THREE.Mesh(clonedBlueRingGeometry, clonedBlueCircleMaterial)
+        clonedBlueCircle.position.set(0, 0, clonedCircleZ)
+        clonedWireframe.add(clonedBlueCircle)
+
+        // Clone green circle
+        const clonedCircleY = clonedR * Math.cos(coneAngle)
+        const clonedGreenRingGeometry = new THREE.TorusGeometry(clonedCircleRadius, 0.01, 16, 64)
+        const clonedGreenCircleMaterial = greenRingMaterial.clone() as THREE.MeshBasicMaterial
+        clonedGreenCircleMaterial.clippingPlanes = [clonedClippingPlane]
+        const clonedGreenCircle = new THREE.Mesh(clonedGreenRingGeometry, clonedGreenCircleMaterial)
+        clonedGreenCircle.position.set(0, clonedCircleY, 0)
+        clonedGreenCircle.rotation.x = Math.PI / 2
+        clonedWireframe.add(clonedGreenCircle)
+
+        // Clone red circle
+        const clonedCircleX = clonedR * Math.cos(coneAngle)
+        const clonedRedRingGeometry = new THREE.TorusGeometry(clonedCircleRadius, 0.01, 16, 64)
+        const clonedRedCircleMaterial = redRingMaterial.clone() as THREE.MeshBasicMaterial
+        clonedRedCircleMaterial.clippingPlanes = [clonedClippingPlane]
+        const clonedRedCircle = new THREE.Mesh(clonedRedRingGeometry, clonedRedCircleMaterial)
+        clonedRedCircle.position.set(clonedCircleX, 0, 0)
+        clonedRedCircle.rotation.y = Math.PI / 2
+        clonedWireframe.add(clonedRedCircle)
+
+        // Clone red square
+        const clonedNegativeCircleX = -clonedR * Math.cos(coneAngle)
+        const clonedHalfSide = clonedCircleRadius
+        const clonedProjectToSphere = (x: number, y: number, z: number): THREE.Vector3 => {
+          const vec = new THREE.Vector3(x, y, z)
+          return vec.normalize().multiplyScalar(clonedR)
+        }
+        const clonedV1 = clonedProjectToSphere(clonedNegativeCircleX, -clonedHalfSide, -clonedHalfSide)
+        const clonedV2 = clonedProjectToSphere(clonedNegativeCircleX, clonedHalfSide, -clonedHalfSide)
+        const clonedV3 = clonedProjectToSphere(clonedNegativeCircleX, clonedHalfSide, clonedHalfSide)
+        const clonedV4 = clonedProjectToSphere(clonedNegativeCircleX, -clonedHalfSide, clonedHalfSide)
+
+        // Create great arc function for cloned radius
+        const createClonedGreatArc = (start: THREE.Vector3, end: THREE.Vector3, segments: number = 64): THREE.Vector3[] => {
+          const points: THREE.Vector3[] = []
+          const startNorm = start.clone().normalize()
+          const endNorm = end.clone().normalize()
+          const angle = startNorm.angleTo(endNorm)
+          for (let i = 0; i <= segments; i++) {
+            const t = i / segments
+            const sinAngle = Math.sin(angle)
+            if (Math.abs(sinAngle) < 1e-6) {
+              points.push(startNorm.clone().multiplyScalar(clonedR))
+            } else {
+              const w1 = Math.sin((1 - t) * angle) / sinAngle
+              const w2 = Math.sin(t * angle) / sinAngle
+              const point = new THREE.Vector3()
+                .addScaledVector(startNorm, w1)
+                .addScaledVector(endNorm, w2)
+              point.normalize().multiplyScalar(clonedR)
+              points.push(point)
+            }
+          }
+          return points
+        }
+
+        const clonedArc1Points = createClonedGreatArc(clonedV1, clonedV2)
+        const clonedArc2Points = createClonedGreatArc(clonedV2, clonedV3)
+        const clonedArc3Points = createClonedGreatArc(clonedV3, clonedV4)
+        const clonedArc4Points = createClonedGreatArc(clonedV4, clonedV1)
+
+        const clonedSquareArc1 = createArcLine(clonedArc1Points, 0x800000)
+        const clonedSquareArc2 = createArcLine(clonedArc2Points, 0x800000)
+        const clonedSquareArc3 = createArcLine(clonedArc3Points, 0x800000)
+        const clonedSquareArc4 = createArcLine(clonedArc4Points, 0x800000)
+
+        // Apply clipping planes to cloned square arcs
+        if (clonedSquareArc1.material instanceof LineMaterial) {
+          clonedSquareArc1.material.clippingPlanes = [clonedClippingPlane]
+        }
+        if (clonedSquareArc2.material instanceof LineMaterial) {
+          clonedSquareArc2.material.clippingPlanes = [clonedClippingPlane]
+        }
+        if (clonedSquareArc3.material instanceof LineMaterial) {
+          clonedSquareArc3.material.clippingPlanes = [clonedClippingPlane]
+        }
+        if (clonedSquareArc4.material instanceof LineMaterial) {
+          clonedSquareArc4.material.clippingPlanes = [clonedClippingPlane]
+        }
+
+        clonedWireframe.add(clonedSquareArc1)
+        clonedWireframe.add(clonedSquareArc2)
+        clonedWireframe.add(clonedSquareArc3)
+        clonedWireframe.add(clonedSquareArc4)
+
+        // Clone blue square
+        const clonedNegativeCircleZ = -clonedR * Math.cos(coneAngle)
+        const clonedBlueV1 = clonedProjectToSphere(-clonedHalfSide, -clonedHalfSide, clonedNegativeCircleZ)
+        const clonedBlueV2 = clonedProjectToSphere(clonedHalfSide, -clonedHalfSide, clonedNegativeCircleZ)
+        const clonedBlueV3 = clonedProjectToSphere(clonedHalfSide, clonedHalfSide, clonedNegativeCircleZ)
+        const clonedBlueV4 = clonedProjectToSphere(-clonedHalfSide, clonedHalfSide, clonedNegativeCircleZ)
+
+        const clonedBlueArc1Points = createClonedGreatArc(clonedBlueV1, clonedBlueV2)
+        const clonedBlueArc2Points = createClonedGreatArc(clonedBlueV2, clonedBlueV3)
+        const clonedBlueArc3Points = createClonedGreatArc(clonedBlueV3, clonedBlueV4)
+        const clonedBlueArc4Points = createClonedGreatArc(clonedBlueV4, clonedBlueV1)
+
+        const clonedBlueSquareArc1 = createArcLine(clonedBlueArc1Points, 0x000080)
+        const clonedBlueSquareArc2 = createArcLine(clonedBlueArc2Points, 0x000080)
+        const clonedBlueSquareArc3 = createArcLine(clonedBlueArc3Points, 0x000080)
+        const clonedBlueSquareArc4 = createArcLine(clonedBlueArc4Points, 0x000080)
+
+        // Apply clipping planes to cloned blue square arcs
+        if (clonedBlueSquareArc1.material instanceof LineMaterial) {
+          clonedBlueSquareArc1.material.clippingPlanes = [clonedClippingPlane]
+        }
+        if (clonedBlueSquareArc2.material instanceof LineMaterial) {
+          clonedBlueSquareArc2.material.clippingPlanes = [clonedClippingPlane]
+        }
+        if (clonedBlueSquareArc3.material instanceof LineMaterial) {
+          clonedBlueSquareArc3.material.clippingPlanes = [clonedClippingPlane]
+        }
+        if (clonedBlueSquareArc4.material instanceof LineMaterial) {
+          clonedBlueSquareArc4.material.clippingPlanes = [clonedClippingPlane]
+        }
+
+        clonedWireframe.add(clonedBlueSquareArc1)
+        clonedWireframe.add(clonedBlueSquareArc2)
+        clonedWireframe.add(clonedBlueSquareArc3)
+        clonedWireframe.add(clonedBlueSquareArc4)
+
+        // Clone green square
+        const clonedNegativeCircleY = -clonedR * Math.cos(coneAngle)
+        const clonedGreenV1 = clonedProjectToSphere(-clonedHalfSide, clonedNegativeCircleY, -clonedHalfSide)
+        const clonedGreenV2 = clonedProjectToSphere(clonedHalfSide, clonedNegativeCircleY, -clonedHalfSide)
+        const clonedGreenV3 = clonedProjectToSphere(clonedHalfSide, clonedNegativeCircleY, clonedHalfSide)
+        const clonedGreenV4 = clonedProjectToSphere(-clonedHalfSide, clonedNegativeCircleY, clonedHalfSide)
+
+        const clonedGreenArc1Points = createClonedGreatArc(clonedGreenV1, clonedGreenV2)
+        const clonedGreenArc2Points = createClonedGreatArc(clonedGreenV2, clonedGreenV3)
+        const clonedGreenArc3Points = createClonedGreatArc(clonedGreenV3, clonedGreenV4)
+        const clonedGreenArc4Points = createClonedGreatArc(clonedGreenV4, clonedGreenV1)
+
+        const clonedGreenSquareArc1 = createArcLine(clonedGreenArc1Points, 0x008000)
+        const clonedGreenSquareArc2 = createArcLine(clonedGreenArc2Points, 0x008000)
+        const clonedGreenSquareArc3 = createArcLine(clonedGreenArc3Points, 0x008000)
+        const clonedGreenSquareArc4 = createArcLine(clonedGreenArc4Points, 0x008000)
+
+        // Apply clipping planes to cloned green square arcs
+        if (clonedGreenSquareArc1.material instanceof LineMaterial) {
+          clonedGreenSquareArc1.material.clippingPlanes = [clonedClippingPlane]
+        }
+        if (clonedGreenSquareArc2.material instanceof LineMaterial) {
+          clonedGreenSquareArc2.material.clippingPlanes = [clonedClippingPlane]
+        }
+        if (clonedGreenSquareArc3.material instanceof LineMaterial) {
+          clonedGreenSquareArc3.material.clippingPlanes = [clonedClippingPlane]
+        }
+        if (clonedGreenSquareArc4.material instanceof LineMaterial) {
+          clonedGreenSquareArc4.material.clippingPlanes = [clonedClippingPlane]
+        }
+
+        clonedWireframe.add(clonedGreenSquareArc1)
+        clonedWireframe.add(clonedGreenSquareArc2)
+        clonedWireframe.add(clonedGreenSquareArc3)
+        clonedWireframe.add(clonedGreenSquareArc4)
       }
 
-      // Add local axes attached to wireframe - shows Y' as it rotates
-      // Colors: RGB (Red=X, Green=Y, Blue=Z)
-      // X axis (Red) - right
-      const xAxisGeometry = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(2, 0, 0)
-      ])
-      const xAxisMaterial = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 3 }) // Pure Red
-      const xAxis = new THREE.Line(xAxisGeometry, xAxisMaterial)
-      wireframe.add(xAxis)
-
-      // Y axis (Green) - up (becomes Y' after rotation)
-      const yAxisGeometry = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(0, 2, 0)
-      ])
-      const yAxisMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00, linewidth: 3 }) // Pure Green
-      const yAxis = new THREE.Line(yAxisGeometry, yAxisMaterial)
-      wireframe.add(yAxis)
-
-      // Z axis (Blue) - out (towards viewer)
-      const zAxisGeometry = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(0, 0, 2)
-      ])
-      const zAxisMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff, linewidth: 3 }) // Pure Blue
-      const zAxis = new THREE.Line(zAxisGeometry, zAxisMaterial)
-      wireframe.add(zAxis)
 
       // Create grey spheres at each vertex (will turn black when clicked)
       raycaster = new THREE.Raycaster()
@@ -548,12 +786,14 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
       
       for (let i = 0; i < data.vertices.length; i++) {
         const vertexPos = new THREE.Vector3(...data.vertices[i])
-        // Create grey sphere at each vertex
+        // Create grey sphere at each vertex (stone sphere)
         const sphereGeometry = new THREE.SphereGeometry(0.06, 32, 32)
         const sphereMaterial = new THREE.MeshStandardMaterial({ 
           color: 0xAAAAAA, // Lighter grey
-          metalness: 0.3,
-          roughness: 0.7
+          metalness: 0.0,
+          roughness: 0.2, // Specular/shiny finish
+          transparent: true,
+          opacity: 0.7 // Slightly transparent for empty vertices
         })
         const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial)
         sphere.position.copy(vertexPos)
@@ -569,6 +809,40 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
       vertexGroup.quaternion.copy(initialQuaternion)
       scene.add(vertexGroup)
 
+      // Create cloned vertex spheres at cloned scale
+      if (clonedWireframe) {
+        clonedVertexGroup = new THREE.Group()
+        clonedVertexGroupRef.current = clonedVertexGroup
+        
+        // Get clipping plane (same as cloned wireframe)
+        const clonedClippingPlane = new THREE.Plane(viewDirection.clone().negate(), 0)
+        
+        for (let i = 0; i < data.vertices.length; i++) {
+          const vertexPos = new THREE.Vector3(...data.vertices[i]).multiplyScalar(cloneScale)
+          // Create cloned sphere at scaled position
+          const clonedSphereGeometry = new THREE.SphereGeometry(0.06 * cloneScale, 32, 32)
+          const clonedSphereMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0xAAAAAA, // Lighter grey (will be updated by updateSphereColors)
+            metalness: 0.0,
+            roughness: 0.2,
+            transparent: true,
+            opacity: 0.7,
+            clippingPlanes: [clonedClippingPlane]
+          })
+          const clonedSphere = new THREE.Mesh(clonedSphereGeometry, clonedSphereMaterial)
+          clonedSphere.position.copy(vertexPos)
+          clonedSphere.userData = { vertexIndex: i }
+          clonedVertexGroup.add(clonedSphere)
+          
+          // Store cloned sphere reference
+          clonedStonesRef.current.set(i, clonedSphere)
+        }
+        
+        // Apply the same rotation as wireframe
+        clonedVertexGroup.quaternion.copy(initialQuaternion)
+        scene.add(clonedVertexGroup)
+      }
+
       // Add lights
       const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
       scene.add(ambientLight)
@@ -576,6 +850,13 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
       const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
       directionalLight.position.set(5, 5, 5)
       scene.add(directionalLight)
+
+      // Add spotlight near the board
+      const spotlight = new THREE.SpotLight(0xffffff, 15.0, 20, Math.PI / 6, 0.3, 2)
+      spotlight.position.set(6, 5, 2) // Off-center position
+      spotlight.target.position.set(0, 0, 0)
+      scene.add(spotlight)
+      scene.add(spotlight.target)
 
       // Handle window resize
       handleResize = () => {
@@ -588,12 +869,23 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
         if (wireframe instanceof LineSegments2) {
           (wireframe.material as LineMaterial).resolution.set(width, height)
         }
+        if (clonedWireframe instanceof LineSegments2) {
+          (clonedWireframe.material as LineMaterial).resolution.set(width, height)
+        }
         // Update square arc line materials resolution
         squareArcs.forEach(arc => {
           if (arc.material instanceof LineMaterial) {
             arc.material.resolution.set(width, height)
           }
         })
+        // Update cloned square arc line materials resolution
+        if (clonedWireframe) {
+          clonedWireframe.traverse((child) => {
+            if (child instanceof Line2 && child.material instanceof LineMaterial) {
+              child.material.resolution.set(width, height)
+            }
+          })
+        }
       }
       window.addEventListener('resize', handleResize)
 
@@ -739,6 +1031,16 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
         // Update vertex group rotation to match wireframe
         if (vertexGroup) {
           vertexGroup.quaternion.copy(wireframe.quaternion)
+        }
+        
+        // Update cloned wireframe rotation to match wireframe
+        if (clonedWireframe) {
+          clonedWireframe.quaternion.copy(wireframe.quaternion)
+        }
+        
+        // Update cloned vertex group rotation to match wireframe
+        if (clonedVertexGroup) {
+          clonedVertexGroup.quaternion.copy(wireframe.quaternion)
         }
         
         renderer.render(scene, camera)
