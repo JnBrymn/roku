@@ -28,6 +28,15 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
   const rotationRef = useRef({ pitch: 0, yaw: 0 })
   const keysRef = useRef<Set<string>>(new Set())
   const stonesRef = useRef<Map<number, THREE.Mesh>>(new Map())
+  // Store callbacks in refs to prevent re-renders when they change
+  const onPlaceStoneRef = useRef(onPlaceStone)
+  const onStateChangeRef = useRef(onStateChange)
+  
+  // Update refs when callbacks change
+  useEffect(() => {
+    onPlaceStoneRef.current = onPlaceStone
+    onStateChangeRef.current = onStateChange
+  }, [onPlaceStone, onStateChange])
   
   /**
    * Updates sphere colors based on current game board state.
@@ -101,6 +110,11 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
     let polyhedronData: { vertices: number[][], edges: number[][] }
 
     const init = async () => {
+      // Check if canvas already exists INSIDE init (right before creating renderer)
+      // This prevents race conditions from async init() calls
+      if (containerRef.current?.querySelector('canvas')) {
+        return // Exit early - renderer already exists
+      }
       // Fetch and parse data
       const response = await fetch(dataFile)
       const text = await response.text()
@@ -118,7 +132,14 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
       camera.position.set(6, 6, 6)
       camera.lookAt(0, 0, 0)
 
-      // Create renderer
+      // Create renderer - double-check canvas doesn't exist (race condition protection)
+      const existingCanvasCheck = containerRef.current?.querySelector('canvas')
+      
+      // Final guard: if canvas exists now, skip creation (another init() call already created it)
+      if (existingCanvasCheck) {
+        return
+      }
+      
       renderer = new THREE.WebGLRenderer({ antialias: true })
       renderer.setSize(width, height)
       containerRef.current?.appendChild(renderer.domElement)
@@ -391,7 +412,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
           // Only allow placing stones on empty (grey) vertices
           if (material.color.getHex() === 0x808080) {
             // Emit placeStone event - parent component will validate and update game state
-            onPlaceStone(vertexIndex)
+            onPlaceStoneRef.current(vertexIndex)
           }
         }
       }
@@ -484,12 +505,26 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
       if (animationId) {
         cancelAnimationFrame(animationId)
       }
-      if (renderer && containerRef.current && containerRef.current.contains(renderer.domElement)) {
-        containerRef.current.removeChild(renderer.domElement)
+      // Cleanup: Remove ALL canvases from container
+      // Try containerRef first, fallback to finding by class name if ref is null
+      let container: HTMLElement | null = containerRef.current
+      if (!container) {
+        // Fallback: find container by class name (for cleanup when ref is null)
+        container = document.querySelector('.fullscreen-canvas') as HTMLElement
+      }
+      
+      if (container) {
+        const canvases = container.querySelectorAll('canvas')
+        canvases.forEach(canvas => {
+          container!.removeChild(canvas)
+        })
+      }
+      // Dispose renderer if it exists
+      if (renderer) {
         renderer.dispose()
       }
     }
-  }, [dataFile, router, game, onPlaceStone, onStateChange])
+  }, [dataFile, router, game]) // Removed onPlaceStone and onStateChange from dependencies - using refs instead
   
   // Update sphere colors when game state changes
   useEffect(() => {
