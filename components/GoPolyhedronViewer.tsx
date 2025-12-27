@@ -50,14 +50,18 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
       const material = sphere.material as THREE.MeshStandardMaterial
       
       if (color === null) {
-        // Empty vertex - grey
-        material.color.setHex(0x808080)
+        // Empty vertex - grey (lighter)
+        material.color.setHex(0xAAAAAA)
       } else if (color === 'black') {
         // Black stone
         material.color.setHex(0x000000)
       } else if (color === 'white') {
-        // White stone
+        // White stone - extremely white with maximum emissive glow
         material.color.setHex(0xffffff)
+        material.emissive.setHex(0xffffff)
+        material.emissiveIntensity = 1.5
+        material.metalness = 0.0
+        material.roughness = 0.1
       }
     }
   }
@@ -262,41 +266,6 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
       const zAxis = new THREE.Line(zAxisGeometry, zAxisMaterial)
       wireframe.add(zAxis)
 
-      // Add global axes to the scene for reference (semi-transparent RGB)
-      // Rotated so X and Y lie in the screen plane, Z points out (towards camera)
-      const globalAxesGroup = new THREE.Group()
-      
-      // Create axes in their default orientation
-      const globalXGeometry = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(2.5, 0, 0)
-      ])
-      const globalXMaterial = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 2, opacity: 0.4, transparent: true }) // Red
-      const globalXAxis = new THREE.Line(globalXGeometry, globalXMaterial)
-      globalAxesGroup.add(globalXAxis)
-
-      const globalYGeometry = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(0, 2.5, 0)
-      ])
-      const globalYMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00, linewidth: 2, opacity: 0.4, transparent: true }) // Green
-      const globalYAxis = new THREE.Line(globalYGeometry, globalYMaterial)
-      globalAxesGroup.add(globalYAxis)
-
-      const globalZGeometry = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(0, 0, 2.5)
-      ])
-      const globalZMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff, linewidth: 2, opacity: 0.4, transparent: true }) // Blue
-      const globalZAxis = new THREE.Line(globalZGeometry, globalZMaterial)
-      globalAxesGroup.add(globalZAxis)
-
-      // Apply the same rotation matrix to global axes
-      // This ensures global and local axes initially overlap
-      globalAxesGroup.applyMatrix4(initialRotationMatrix)
-
-      scene.add(globalAxesGroup)
-
       // Create grey spheres at each vertex (will turn black when clicked)
       raycaster = new THREE.Raycaster()
       vertexGroup = new THREE.Group()
@@ -307,7 +276,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
         // Create grey sphere at each vertex
         const sphereGeometry = new THREE.SphereGeometry(0.06, 32, 32)
         const sphereMaterial = new THREE.MeshStandardMaterial({ 
-          color: 0x808080, // 50% grey
+          color: 0xAAAAAA, // Lighter grey
           metalness: 0.3,
           roughness: 0.7
         })
@@ -404,7 +373,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
             const material = clickedSphere.material as THREE.MeshStandardMaterial
             
             // Only allow placing stones on empty (grey) vertices
-            if (material.color.getHex() === 0x808080) {
+            if (material.color.getHex() === 0xAAAAAA) {
               // Emit placeStone event - parent component will validate and update game state
               onPlaceStoneRef.current(vertexIndex)
             }
