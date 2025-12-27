@@ -98,6 +98,49 @@ export default function FullScreenPolyhedronViewer({ dataFile, name }: FullScree
       
       scene.add(wireframe)
 
+      // Add inradius sphere at origin if inradius is defined
+      // Colored based on local radius direction (RGB mapping)
+      // Attached to wireframe so it rotates with local axes
+      if (data.inradius !== undefined) {
+        const sphereGeometry = new THREE.SphereGeometry(data.inradius, 64, 64)
+        
+        // Custom shader material that colors based on direction vector (local radius direction)
+        // RGB = direction vector components, negative values are inverted
+        const sphereMaterial = new THREE.ShaderMaterial({
+          vertexShader: `
+            varying vec3 vDirection;
+            void main() {
+              // Use local position (relative to wireframe) for direction
+              vDirection = normalize(position);
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `,
+          fragmentShader: `
+            varying vec3 vDirection;
+            void main() {
+              // Get direction vector (local radius direction from origin)
+              vec3 dir = normalize(vDirection);
+              
+              // Map direction components to RGB: R=X, G=Y, B=Z
+              // Normalize from [-1, 1] to [0, 1]
+              vec3 rgb = dir * 0.5 + 0.5;
+              
+              // If component is negative, invert that color channel
+              vec3 inverted = 1.0 - rgb;
+              float r = dir.x < 0.0 ? inverted.x : rgb.x;
+              float g = dir.y < 0.0 ? inverted.y : rgb.y;
+              float b = dir.z < 0.0 ? inverted.z : rgb.z;
+              
+              gl_FragColor = vec4(r, g, b, 1.0);
+            }
+          `
+        })
+        
+        const inradiusSphere = new THREE.Mesh(sphereGeometry, sphereMaterial)
+        // Add to wireframe so it rotates with local axes
+        wireframe.add(inradiusSphere)
+      }
+
       // Add local axes attached to wireframe - shows Y' as it rotates
       // Colors: RGB (Red=X, Green=Y, Blue=Z)
       // X axis (Red) - right

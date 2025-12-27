@@ -3,12 +3,14 @@ import * as THREE from 'three'
 export interface PolyhedronData {
   vertices: number[][]
   edges: number[][]
+  inradius?: number
 }
 
 export function parsePolyhedronData(text: string): PolyhedronData {
   const lines = text.trim().split('\n')
   const vertices: number[][] = []
   const edges: number[][] = []
+  let inradius: number | undefined = undefined
   
   let section: string | null = null
   
@@ -18,6 +20,9 @@ export function parsePolyhedronData(text: string): PolyhedronData {
       continue
     } else if (line.startsWith('EDGES:')) {
       section = 'edges'
+      continue
+    } else if (line.startsWith('INRADIUS:')) {
+      section = 'inradius'
       continue
     }
     
@@ -40,10 +45,15 @@ export function parsePolyhedronData(text: string): PolyhedronData {
           parseInt(match[2])
         ])
       }
+    } else if (section === 'inradius') {
+      const match = line.match(/^([\d.]+)$/)
+      if (match) {
+        inradius = parseFloat(match[1])
+      }
     }
   }
   
-  return { vertices, edges }
+  return { vertices, edges, inradius }
 }
 
 export function createWireframeGeometry(vertices: number[][], edges: number[][]): THREE.BufferGeometry {
