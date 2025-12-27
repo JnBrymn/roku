@@ -16,27 +16,33 @@ interface GoPolyhedronViewerProps {
   game: GoGame
   /** Callback when a stone placement is attempted (vertexIndex) */
   onPlaceStone: (vertexIndex: number) => void
+  /** Callback when a group removal is attempted (vertexIndex) */
+  onRemoveGroup: (vertexIndex: number) => void
   /** Callback to trigger re-render when board state changes */
   onStateChange: () => void
   /** Update trigger to force re-render when game state changes */
   updateTrigger?: number
 }
 
-export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone, onStateChange, updateTrigger }: GoPolyhedronViewerProps) {
+export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone, onRemoveGroup, onStateChange, updateTrigger }: GoPolyhedronViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const rotationRef = useRef({ pitch: 0, yaw: 0 })
   const keysRef = useRef<Set<string>>(new Set())
   const stonesRef = useRef<Map<number, THREE.Mesh>>(new Map())
+  const auraRef = useRef<THREE.Mesh | null>(null)
+  const vertexGroupRef = useRef<THREE.Group | null>(null)
   // Store callbacks in refs to prevent re-renders when they change
   const onPlaceStoneRef = useRef(onPlaceStone)
+  const onRemoveGroupRef = useRef(onRemoveGroup)
   const onStateChangeRef = useRef(onStateChange)
   
   // Update refs when callbacks change
   useEffect(() => {
     onPlaceStoneRef.current = onPlaceStone
+    onRemoveGroupRef.current = onRemoveGroup
     onStateChangeRef.current = onStateChange
-  }, [onPlaceStone, onStateChange])
+  }, [onPlaceStone, onRemoveGroup, onStateChange])
   
   /**
    * Updates sphere colors based on current game board state.
@@ -52,9 +58,19 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
       if (color === null) {
         // Empty vertex - grey (lighter)
         material.color.setHex(0xAAAAAA)
+        // Reset emissive properties that were set for white stones
+        material.emissive.setHex(0x000000)
+        material.emissiveIntensity = 0
+        material.metalness = 0.3
+        material.roughness = 0.7
       } else if (color === 'black') {
         // Black stone
         material.color.setHex(0x000000)
+        // Reset emissive properties
+        material.emissive.setHex(0x000000)
+        material.emissiveIntensity = 0
+        material.metalness = 0.3
+        material.roughness = 0.7
       } else if (color === 'white') {
         // White stone - extremely white with maximum emissive glow
         material.color.setHex(0xffffff)
@@ -62,6 +78,55 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
         material.emissiveIntensity = 1.5
         material.metalness = 0.0
         material.roughness = 0.1
+      }
+    }
+  }
+  
+  /**
+   * Updates the yellow aura around the last played stone.
+   * Removes the previous aura and adds a new one if there's a last played stone.
+   */
+  const updateAura = () => {
+    // Remove previous aura if it exists
+    if (auraRef.current) {
+      const parent = auraRef.current.parent
+      if (parent) {
+        parent.remove(auraRef.current)
+        auraRef.current.geometry.dispose()
+        if (auraRef.current.material instanceof THREE.Material) {
+          auraRef.current.material.dispose()
+        }
+      }
+      auraRef.current = null
+    }
+    
+    // Add aura to the last played stone (only if it still exists and has a stone)
+    const lastPlayedIndex = game.getLastPlayedVertex()
+    if (lastPlayedIndex !== null && vertexGroupRef.current) {
+      const stone = stonesRef.current.get(lastPlayedIndex)
+      const board = game.getBoard()
+      const color = board.get(lastPlayedIndex)
+      
+      // Only add aura if the stone still exists (not removed/captured)
+      if (stone && color !== null) {
+        // Create a slightly larger sphere for the aura
+        const auraGeometry = new THREE.SphereGeometry(0.08, 32, 32)
+        const auraMaterial = new THREE.MeshStandardMaterial({
+          color: 0xffff00, // Yellow
+          emissive: 0xffff00,
+          emissiveIntensity: 0.8,
+          transparent: true,
+          opacity: 0.6,
+          side: THREE.DoubleSide
+        })
+        const aura = new THREE.Mesh(auraGeometry, auraMaterial)
+        
+        // Position aura at the same location as the stone (relative to stone's parent)
+        aura.position.copy(stone.position)
+        
+        // Add aura to the vertex group
+        vertexGroupRef.current.add(aura)
+        auraRef.current = aura
       }
     }
   }
@@ -269,6 +334,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
       // Create grey spheres at each vertex (will turn black when clicked)
       raycaster = new THREE.Raycaster()
       vertexGroup = new THREE.Group()
+      vertexGroupRef.current = vertexGroup
       vertexSpheres = []
       
       for (let i = 0; i < data.vertices.length; i++) {
@@ -368,14 +434,25 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
           if (firstIntersection.parent === vertexGroup) {
             const clickedSphere = firstIntersection as THREE.Mesh
             
-            // Get vertex index and check if it's empty (grey)
+            // Get vertex index
             const vertexIndex = clickedSphere.userData.vertexIndex
             const material = clickedSphere.material as THREE.MeshStandardMaterial
             
-            // Only allow placing stones on empty (grey) vertices
-            if (material.color.getHex() === 0xAAAAAA) {
-              // Emit placeStone event - parent component will validate and update game state
-              onPlaceStoneRef.current(vertexIndex)
+            // Check if game is over
+            const isGameOver = game.isGameOver()
+            
+            if (isGameOver) {
+              // Game is over - allow removing groups by clicking on any vertex with a stone
+              if (material.color.getHex() !== 0xAAAAAA) {
+                // Clicked on a stone - remove the group
+                onRemoveGroupRef.current(vertexIndex)
+              }
+            } else {
+              // Game is active - only allow placing stones on empty (grey) vertices
+              if (material.color.getHex() === 0xAAAAAA) {
+                // Emit placeStone event - parent component will validate and update game state
+                onPlaceStoneRef.current(vertexIndex)
+              }
             }
           }
         }
@@ -399,6 +476,11 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
         if (keysRef.current.has('w')) {
           rotationRef.current.pitch -= rotationSpeed  // Counterclockwise around X
         }
+        
+        // Clamp pitch to -90 to +90 degrees (-Math.PI/2 to Math.PI/2 radians)
+        const maxPitch = Math.PI / 2  // 90 degrees
+        const minPitch = -Math.PI / 2  // -90 degrees
+        rotationRef.current.pitch = Math.max(minPitch, Math.min(maxPitch, rotationRef.current.pitch))
         
         // A/D: Rotate around Y' axis (yaw) - local Y axis after X rotation
         // D: Rotate positive around Y'
@@ -451,6 +533,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
       
       // Initial sphere color update
       updateSphereColors()
+      updateAura()
     }
 
     init()
@@ -490,12 +573,15 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
     }
   }, [dataFile, router, game]) // Removed onPlaceStone and onStateChange from dependencies - using refs instead
   
-  // Update sphere colors when game state changes
+  // Update sphere colors and aura when game state changes
   useEffect(() => {
     if (game && stonesRef.current.size > 0) {
       updateSphereColors()
+      updateAura()
     }
   }, [game, onStateChange, updateTrigger])
+
+  const isGameOver = game.isGameOver()
 
   return (
     <div className="fullscreen-viewer">
@@ -506,9 +592,29 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
         </button>
       </div>
       <div className="controls-hint">
-        Click on front-facing grey vertices to place stones • Use WASD to rotate • ESC to go back
+        {isGameOver 
+          ? 'Click on any stone to remove dead groups • Use WASD to rotate • ESC to go back'
+          : 'Click on front-facing grey vertices to place stones • Use WASD to rotate • ESC to go back'}
       </div>
-      <div ref={containerRef} className="fullscreen-canvas" />
+      <div ref={containerRef} className="fullscreen-canvas" style={{ position: 'relative' }}>
+        {isGameOver && (
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            color: 'white',
+            fontSize: '32px',
+            fontWeight: 'bold',
+            textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)',
+            pointerEvents: 'none',
+            zIndex: 10,
+            textAlign: 'center'
+          }}>
+            Remove Dead Groups
+          </div>
+        )}
+      </div>
     </div>
   )
 }

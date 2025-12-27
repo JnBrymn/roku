@@ -92,6 +92,9 @@ export class GoGame {
   
   /** Set of all board state hashes that have occurred (for Ko rule) */
   private boardStateHashes: Set<string>
+  
+  /** Last played vertex index (null if no stone has been played yet) */
+  private lastPlayedVertex: number | null
 
   /**
    * Creates a new Go game on the given polyhedron.
@@ -117,6 +120,7 @@ export class GoGame {
     this.consecutivePasses = 0
     this.gameOver = false
     this.boardStateHashes = new Set()
+    this.lastPlayedVertex = null
     
     // Add initial empty board state to hash set
     const initialHash = this.serializeBoard()
@@ -323,6 +327,69 @@ export class GoGame {
     for (const v of vertexIndices) {
       this.board.set(v, null)
     }
+  }
+
+  /**
+   * Removes a group of stones by clicking on any vertex in the group.
+   * Only works when the game is over.
+   * Adds the removal to move history so it can be undone.
+   * 
+   * @param vertexIndex Vertex index in the group to remove
+   * @returns True if group was removed, false if invalid or game not over
+   */
+  removeGroup(vertexIndex: number): boolean {
+    // Only allow removing groups when game is over
+    if (!this.gameOver) {
+      return false
+    }
+    
+    // Check if vertex index is valid
+    if (vertexIndex < 0 || vertexIndex >= this.vertices.length) {
+      return false
+    }
+    
+    // Get the connected group
+    const group = this.getConnected(vertexIndex)
+    
+    // If vertex is empty, nothing to remove
+    if (group.length === 0) {
+      return false
+    }
+    
+    // Create board snapshot before removal
+    const boardBefore = this.createBoardSnapshot()
+    
+    // Get the color of the group before removal
+    const groupColor = boardBefore.get(vertexIndex) as StoneColor
+    
+    // Remove all stones in the group
+    this.removeStones(group)
+    
+    // Create board snapshot after removal
+    const boardAfter = this.createBoardSnapshot()
+    const boardHash = this.serializeBoard()
+    
+    // Create move object for removal (vertexIndex is null, but we track the group)
+    const move = new Move(
+      null, // No stone placement, just removal
+      groupColor, // Color of removed group (for reference)
+      group, // Store the removed vertices as "captures"
+      boardBefore,
+      boardAfter,
+      boardHash
+    )
+    
+    // Add to history (truncate if we're not at the end)
+    if (this.historyIndex < this.moveHistory.length - 1) {
+      this.moveHistory = this.moveHistory.slice(0, this.historyIndex + 1)
+    }
+    this.moveHistory.push(move)
+    this.historyIndex++
+    
+    // Add new hash to set
+    this.boardStateHashes.add(boardHash)
+    
+    return true
   }
 
   /**
@@ -538,6 +605,9 @@ export class GoGame {
     // Add new hash to set
     this.boardStateHashes.add(boardHash)
     
+    // Update last played vertex
+    this.lastPlayedVertex = vertexIndex
+    
     // Switch player
     this.currentPlayer = this.currentPlayer === 'black' ? 'white' : 'black'
     this.consecutivePasses = 0
@@ -616,6 +686,14 @@ export class GoGame {
     
     this.historyIndex--
     
+    // Update last played vertex to the previous move's vertex (if any)
+    if (this.historyIndex >= 0) {
+      const previousMove = this.moveHistory[this.historyIndex]
+      this.lastPlayedVertex = previousMove.vertexIndex
+    } else {
+      this.lastPlayedVertex = null
+    }
+    
     return true
   }
 
@@ -648,6 +726,9 @@ export class GoGame {
     // Update player (next player after this move)
     this.currentPlayer = move.color === 'black' ? 'white' : 'black'
     
+    // Update last played vertex to the move being redone
+    this.lastPlayedVertex = move.vertexIndex
+    
     return true
   }
 
@@ -667,6 +748,7 @@ export class GoGame {
     this.consecutivePasses = 0
     this.gameOver = false
     this.boardStateHashes.clear()
+    this.lastPlayedVertex = null
     
     // Add initial empty board state
     const initialHash = this.serializeBoard()
@@ -725,6 +807,15 @@ export class GoGame {
    */
   canRedo(): boolean {
     return this.historyIndex < this.moveHistory.length - 1
+  }
+
+  /**
+   * Gets the last played vertex index.
+   * 
+   * @returns Last played vertex index, or null if no stone has been played yet
+   */
+  getLastPlayedVertex(): number | null {
+    return this.lastPlayedVertex
   }
 }
 

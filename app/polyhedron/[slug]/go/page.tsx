@@ -54,6 +54,19 @@ export default function GoPolyhedronPage({ params }: { params: { slug: string } 
     setUpdateTrigger(prev => prev + 1)
   }
 
+  const handleRemoveGroup = (vertexIndex: number) => {
+    if (!game) return
+
+    const success = game.removeGroup(vertexIndex)
+    
+    if (success) {
+      // Clear any previous error
+      setErrorMessage(null)
+      // Trigger re-render
+      setUpdateTrigger(prev => prev + 1)
+    }
+  }
+
   const handleStateChange = () => {
     setUpdateTrigger(prev => prev + 1)
   }
@@ -73,6 +86,7 @@ export default function GoPolyhedronPage({ params }: { params: { slug: string } 
         name={polyhedron.name}
         game={game}
         onPlaceStone={handlePlaceStone}
+        onRemoveGroup={handleRemoveGroup}
         onStateChange={handleStateChange}
         updateTrigger={updateTrigger}
       />

@@ -32,11 +32,6 @@ export default function GoGameControls({ game, onStateChange }: GoGameControlsPr
     }
   }
 
-  const handleReset = () => {
-    game.reset()
-    onStateChange()
-  }
-
   // Check if undo/redo are available
   const canUndo = game.canUndo()
   const canRedo = game.canRedo()
@@ -64,12 +59,6 @@ export default function GoGameControls({ game, onStateChange }: GoGameControlsPr
         className="redo-button"
       >
         Redo
-      </button>
-      <button
-        onClick={handleReset}
-        className="reset-button"
-      >
-        Reset
       </button>
     </div>
   )
