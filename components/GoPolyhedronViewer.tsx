@@ -242,25 +242,28 @@ export default function GoPolyhedronViewer({ dataFile, name }: GoPolyhedronViewe
 
       scene.add(globalAxesGroup)
 
-      // Create invisible spheres at each vertex for raycasting
+      // Create grey spheres at each vertex (will turn black when clicked)
       raycaster = new THREE.Raycaster()
       vertexGroup = new THREE.Group()
       vertexSpheres = []
       
       for (let i = 0; i < data.vertices.length; i++) {
         const vertexPos = new THREE.Vector3(...data.vertices[i])
-        // Create a larger invisible sphere for raycasting (easier to click)
-        const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16)
-        const sphereMaterial = new THREE.MeshBasicMaterial({ 
-          visible: false, 
-          transparent: true, 
-          opacity: 0 
+        // Create grey sphere at each vertex
+        const sphereGeometry = new THREE.SphereGeometry(0.06, 32, 32)
+        const sphereMaterial = new THREE.MeshStandardMaterial({ 
+          color: 0x808080, // 50% grey
+          metalness: 0.3,
+          roughness: 0.7
         })
         const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial)
         sphere.position.copy(vertexPos)
         sphere.userData = { vertexIndex: i }
         vertexGroup.add(sphere)
         vertexSpheres.push(sphere)
+        
+        // Store sphere reference (initially grey, will turn black when clicked)
+        stonesRef.current.set(i, sphere)
       }
       
       // Apply the same rotation as wireframe
@@ -307,7 +310,7 @@ export default function GoPolyhedronViewer({ dataFile, name }: GoPolyhedronViewe
       window.addEventListener('keydown', handleKeyDown)
       window.addEventListener('keyup', handleKeyUp)
 
-      // Click handler for placing stones
+      // Click handler for turning spheres black
       handleClick = (e: MouseEvent) => {
         const target = e.target as HTMLElement
         // Only handle clicks on canvas
@@ -322,70 +325,39 @@ export default function GoPolyhedronViewer({ dataFile, name }: GoPolyhedronViewe
         // Update raycaster with camera and mouse position
         raycaster.setFromCamera(mouse, camera)
         
-        // Find intersections with vertex group (recursive to include all spheres)
+        // Find intersections with the visible spheres (recursive to include all spheres in group)
         const intersects = raycaster.intersectObjects([vertexGroup], true)
         
-        console.log('Click detected, intersections:', intersects.length)
-        
         if (intersects.length > 0) {
-          const hitSphere = intersects[0].object as THREE.Mesh
-          const vertexIndex = hitSphere.userData.vertexIndex as number
+          // Get the clicked sphere mesh
+          const clickedSphere = intersects[0].object as THREE.Mesh
           
-          console.log('Hit vertex:', vertexIndex, 'Distance:', intersects[0].distance)
+          // Get the world position of the clicked sphere
+          const worldPosition = new THREE.Vector3()
+          clickedSphere.getWorldPosition(worldPosition)
           
-          // Get world position of the hit sphere (already transformed by parent group)
-          const vertexWorldPos = new THREE.Vector3()
-          hitSphere.getWorldPosition(vertexWorldPos)
+          // Transform world position back to original global coordinate system
+          // The initialRotationMatrix rotates the global axes, so we need to invert it
+          // to check the Z coordinate in the original (unrotated) global space
+          const inverseRotationMatrix = new THREE.Matrix4()
+          inverseRotationMatrix.copy(initialRotationMatrix).invert()
+          const globalPosition = worldPosition.clone().applyMatrix4(inverseRotationMatrix)
           
-          // Get camera forward direction
-          const cameraDirection = new THREE.Vector3()
-          camera.getWorldDirection(cameraDirection)
-          
-          // Vector from camera to vertex
-          const cameraToVertex = new THREE.Vector3()
-          cameraToVertex.subVectors(vertexWorldPos, camera.position)
-          
-          // Normalize for accurate dot product
-          cameraToVertex.normalize()
-          
-          // Check if vertex is in front of camera (dot product > 0 means front-facing)
-          // Also check that the intersection distance is reasonable (not too far)
-          const dotProduct = cameraToVertex.dot(cameraDirection)
-          const distance = intersects[0].distance
-          
-          console.log('Dot product:', dotProduct, 'Distance:', distance)
-          
-          if (dotProduct > 0 && distance < 100) {
-            // Vertex is front-facing, place a stone
-            // Check if stone already exists at this vertex
-            if (!stonesRef.current.has(vertexIndex)) {
-              console.log('Placing stone at vertex:', vertexIndex)
-              
-              // Create black stone (sphere)
-              const stoneGeometry = new THREE.SphereGeometry(0.12, 32, 32)
-              const stoneMaterial = new THREE.MeshStandardMaterial({ 
-                color: 0x000000,
-                metalness: 0.3,
-                roughness: 0.7
-              })
-              const stone = new THREE.Mesh(stoneGeometry, stoneMaterial)
-              
-              // Position stone at vertex (in wireframe's local space)
-              stone.position.copy(new THREE.Vector3(...polyhedronData.vertices[vertexIndex]))
-              
-              // Add to wireframe so it rotates with the polyhedron
-              wireframe.add(stone)
-              
-              // Store stone reference
-              stonesRef.current.set(vertexIndex, stone)
-            } else {
-              console.log('Stone already exists at vertex:', vertexIndex)
-            }
-          } else {
-            console.log('Vertex not front-facing or too far')
+          // Check if sphere is behind the XY global plane (Z < 0 in original global coordinates)
+          // The XY plane divides space: Z > 0 is in front, Z < 0 is behind
+          if (globalPosition.z < 0) {
+            // Sphere is behind the XY global plane, don't allow clicking
+            console.log('Sphere behind XY plane, click ignored')
+            return
           }
-        } else {
-          console.log('No intersections found')
+          
+          // Get the material and check if it's still grey
+          const material = clickedSphere.material as THREE.MeshStandardMaterial
+          if (material.color.getHex() === 0x808080) {
+            // Turn the clicked sphere black
+            material.color.setHex(0x000000)
+            console.log('Sphere turned black at vertex:', clickedSphere.userData.vertexIndex)
+          }
         }
       }
       
@@ -447,9 +419,9 @@ export default function GoPolyhedronViewer({ dataFile, name }: GoPolyhedronViewe
         // Multiply yaw on the left to rotate in world space around the transformed Y axis
         wireframe.quaternion.multiplyQuaternions(yawQuaternion, afterPitchQuaternion)
         
-        // Update vertex spheres rotation to match wireframe
-        if (vertexSpheres.length > 0 && vertexSpheres[0].parent) {
-          vertexSpheres[0].parent.quaternion.copy(wireframe.quaternion)
+        // Update vertex group rotation to match wireframe
+        if (vertexGroup) {
+          vertexGroup.quaternion.copy(wireframe.quaternion)
         }
         
         renderer.render(scene, camera)
@@ -490,7 +462,7 @@ export default function GoPolyhedronViewer({ dataFile, name }: GoPolyhedronViewe
         </button>
       </div>
       <div className="controls-hint">
-        Click on front-facing vertices to place black stones • Use WASD to rotate • ESC to go back
+        Click on front-facing grey vertices to turn them black • Use WASD to rotate • ESC to go back
       </div>
       <div ref={containerRef} className="fullscreen-canvas" />
     </div>
