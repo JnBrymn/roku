@@ -70,10 +70,18 @@ export function createWireframeGeometry(vertices: number[][], edges: number[][])
 }
 
 export const polyhedraData = [
+  // Platonic Solids
   { file: '/data/tetrahedron.txt', name: 'Tetrahedron', slug: 'tetrahedron' },
   { file: '/data/cube.txt', name: 'Cube', slug: 'cube' },
   { file: '/data/octahedron.txt', name: 'Octahedron', slug: 'octahedron' },
   { file: '/data/dodecahedron.txt', name: 'Dodecahedron', slug: 'dodecahedron' },
-  { file: '/data/icosahedron.txt', name: 'Icosahedron', slug: 'icosahedron' }
+  { file: '/data/icosahedron.txt', name: 'Icosahedron', slug: 'icosahedron' },
+  // Johnson Solids
+  { file: '/data/square_pyramid.txt', name: 'Square Pyramid', slug: 'square-pyramid' },
+  { file: '/data/pentagonal_pyramid.txt', name: 'Pentagonal Pyramid', slug: 'pentagonal-pyramid' },
+  // Near-miss Johnson Solids
+  { file: '/data/rectified_truncated_icosahedron.txt', name: 'Rectified Truncated Icosahedron', slug: 'rectified-truncated-icosahedron' },
+  { file: '/data/expanded_truncated_icosahedron.txt', name: 'Expanded Truncated Icosahedron', slug: 'expanded-truncated-icosahedron' },
+  { file: '/data/snub_rectified_truncated_icosahedron.txt', name: 'Snub Rectified Truncated Icosahedron', slug: 'snub-rectified-truncated-icosahedron' }
 ]
 
