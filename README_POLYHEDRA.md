@@ -29,7 +29,7 @@ python3 scripts/convert_obj_to_format.py ~/Downloads/polyhedron.obj public/data/
 ```
 
 ### 2. Near-Miss Johnson Solids - Polyhedronisme
-**URL**: https://levskaya.github.io/polyhedronisme/
+**URL**: w
 
 Best for: Near-miss Johnson solids and complex polyhedra using Conway notation
 
