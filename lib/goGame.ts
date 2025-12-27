@@ -6,6 +6,7 @@
  */
 
 export type StoneColor = 'black' | 'white'
+export type VertexState = StoneColor | null | 'white_owned' | 'black_owned' | 'unowned'
 
 /**
  * Represents a single move in the game.
@@ -22,10 +23,10 @@ export class Move {
   readonly captures: number[]
   
   /** Board state before this move was made */
-  readonly boardBefore: Map<number, StoneColor | null>
+  readonly boardBefore: Map<number, VertexState>
   
   /** Board state after this move was made */
-  readonly boardAfter: Map<number, StoneColor | null>
+  readonly boardAfter: Map<number, VertexState>
   
   /** Hash of the board state after this move (for Ko rule detection) */
   readonly boardHash: string
@@ -34,8 +35,8 @@ export class Move {
     vertexIndex: number | null,
     color: StoneColor,
     captures: number[],
-    boardBefore: Map<number, StoneColor | null>,
-    boardAfter: Map<number, StoneColor | null>,
+    boardBefore: Map<number, VertexState>,
+    boardAfter: Map<number, VertexState>,
     boardHash: string
   ) {
     this.vertexIndex = vertexIndex
@@ -63,8 +64,8 @@ export interface MoveValidationResult {
  * Manages game state, validates moves, handles captures, and enforces rules.
  */
 export class GoGame {
-  /** Current board state: vertex index -> stone color or null */
-  private board: Map<number, StoneColor | null>
+  /** Current board state: vertex index -> vertex state (stone color, ownership, or empty) */
+  private board: Map<number, VertexState>
   
   /** Vertex positions (immutable) */
   private readonly vertices: number[][]
@@ -128,6 +129,27 @@ export class GoGame {
   }
 
   /**
+   * Checks if a vertex state represents an actual stone (black or white).
+   * Ownership states and empty vertices are not considered stones.
+   * 
+   * @param state Vertex state to check
+   * @returns True if state is 'black' or 'white'
+   */
+  private isStone(state: VertexState | undefined): state is StoneColor {
+    return state === 'black' || state === 'white'
+  }
+
+  /**
+   * Checks if a vertex is empty (null).
+   * 
+   * @param state Vertex state to check
+   * @returns True if state is null
+   */
+  private isEmpty(state: VertexState | undefined): boolean {
+    return state === null
+  }
+
+  /**
    * Builds an adjacency map from the edge list.
    * Each vertex maps to an array of its neighboring vertex indices.
    * 
@@ -168,7 +190,7 @@ export class GoGame {
    * 
    * @returns New Map with copied board state
    */
-  private createBoardSnapshot(): Map<number, StoneColor | null> {
+  private createBoardSnapshot(): Map<number, VertexState> {
     return new Map(this.board)
   }
 
@@ -177,28 +199,46 @@ export class GoGame {
    * 
    * @param snapshot Board state to restore
    */
-  private restoreBoardSnapshot(snapshot: Map<number, StoneColor | null>): void {
+  private restoreBoardSnapshot(snapshot: Map<number, VertexState>): void {
     this.board = new Map(snapshot)
   }
 
   /**
    * Gets all vertices connected to the given vertex that have the same color.
+   * If the vertex is empty, returns all connected empty vertices.
    * Uses BFS to traverse connected components.
    * 
    * @param vertexIndex Starting vertex index
    * @param boardSnapshot Optional board snapshot to use instead of current board
-   * @returns Array of vertex indices in the connected group, or empty array if vertex is empty
+   * @returns Array of vertex indices in the connected group, or empty array if vertex is empty and has no connected empty vertices
    */
-  getConnected(vertexIndex: number, boardSnapshot?: Map<number, StoneColor | null>): number[] {
+  getConnected(vertexIndex: number, boardSnapshot?: Map<number, VertexState>): number[] {
     const board = boardSnapshot || this.board
-    const color = board.get(vertexIndex)
+    const state = board.get(vertexIndex)
     
-    // If vertex is empty, return empty array
-    if (color === null) {
-      return []
+    // If vertex is empty (null) or ownership state, return all connected empty/ownership vertices
+    if (state === null || state === 'white_owned' || state === 'black_owned' || state === 'unowned') {
+      const visited = new Set<number>()
+      const queue: number[] = [vertexIndex]
+      visited.add(vertexIndex)
+      
+      while (queue.length > 0) {
+        const current = queue.shift()!
+        const neighbors = this.adjacencyMap.get(current) || []
+        
+        for (const neighbor of neighbors) {
+          const neighborState = board.get(neighbor)
+          if (!visited.has(neighbor) && (neighborState === null || neighborState === 'white_owned' || neighborState === 'black_owned' || neighborState === 'unowned')) {
+            visited.add(neighbor)
+            queue.push(neighbor)
+          }
+        }
+      }
+      
+      return Array.from(visited)
     }
     
-    // BFS to find all connected vertices of same color
+    // BFS to find all connected vertices of same color (only for actual stones)
     const visited = new Set<number>()
     const queue: number[] = [vertexIndex]
     visited.add(vertexIndex)
@@ -208,7 +248,7 @@ export class GoGame {
       const neighbors = this.adjacencyMap.get(current) || []
       
       for (const neighbor of neighbors) {
-        if (!visited.has(neighbor) && board.get(neighbor) === color) {
+        if (!visited.has(neighbor) && board.get(neighbor) === state) {
           visited.add(neighbor)
           queue.push(neighbor)
         }
@@ -216,6 +256,31 @@ export class GoGame {
     }
     
     return Array.from(visited)
+  }
+
+  /**
+   * Gets all vertices that are connected to the given list of vertices (but not in the input list).
+   * Returns surrounding vertices regardless of stone color or whether they're empty.
+   * 
+   * @param vertexIndices Array of vertex indices to find surroundings for
+   * @returns Array of vertex indices that are adjacent to the input vertices but not in the input list
+   */
+  getSurroundingVertices(vertexIndices: number[]): number[] {
+    const inputSet = new Set(vertexIndices)
+    const surroundingSet = new Set<number>()
+    
+    // For each vertex in the input list, add all its neighbors
+    for (const vertexIndex of vertexIndices) {
+      const neighbors = this.adjacencyMap.get(vertexIndex) || []
+      for (const neighbor of neighbors) {
+        // Only add if not in the input list
+        if (!inputSet.has(neighbor)) {
+          surroundingSet.add(neighbor)
+        }
+      }
+    }
+    
+    return Array.from(surroundingSet)
   }
 
   /**
@@ -229,12 +294,13 @@ export class GoGame {
    */
   countLiberties(vertexIndex: number, color?: StoneColor): number {
     // Determine which board to use
-    let board: Map<number, StoneColor | null>
+    let board: Map<number, VertexState>
     let groupColor: StoneColor
     
     if (color !== undefined) {
       // Color specified - use snapshot with stone placed
-      if (this.board.get(vertexIndex) !== null) {
+      const currentState = this.board.get(vertexIndex)
+      if (!this.isEmpty(currentState)) {
         throw new Error(`Vertex ${vertexIndex} is already occupied`)
       }
       board = this.createBoardSnapshot()
@@ -243,11 +309,11 @@ export class GoGame {
     } else {
       // No color specified - use existing board and existing stone's color
       board = this.board
-      const existingColor = this.board.get(vertexIndex)
-      if (existingColor === null) {
+      const existingState = this.board.get(vertexIndex)
+      if (!this.isStone(existingState)) {
         throw new Error(`Vertex ${vertexIndex} is empty and no color specified`)
       }
-      groupColor = existingColor as StoneColor // Safe because we checked it's not null
+      groupColor = existingState
     }
     
     // Get the full connected group
@@ -262,11 +328,11 @@ export class GoGame {
       }
     }
     
-    // Count how many are empty
+    // Count how many are empty (null only, not ownership states)
     let liberties = 0
     const adjacentArray = Array.from(adjacentSet)
     for (const v of adjacentArray) {
-      if (board.get(v) === null) {
+      if (this.isEmpty(board.get(v))) {
         liberties++
       }
     }
@@ -282,12 +348,12 @@ export class GoGame {
    * @returns Array of initial vertex indices of groups that are dead (empty if none)
    */
   checkLife(vertexIndex: number): number[] {
-    const stoneColor = this.board.get(vertexIndex)
-    if (stoneColor === null) {
+    const state = this.board.get(vertexIndex)
+    if (!this.isStone(state)) {
       throw new Error(`Vertex ${vertexIndex} is empty - stone must be placed before checking life`)
     }
     
-    const opponentColor: StoneColor = stoneColor === 'black' ? 'white' : 'black'
+    const opponentColor: StoneColor = state === 'black' ? 'white' : 'black'
     const neighbors = this.adjacencyMap.get(vertexIndex) || []
     
     // Find all opponent groups adjacent to this vertex
@@ -319,7 +385,7 @@ export class GoGame {
   }
 
   /**
-   * Removes stones from the board.
+   * Removes stones from the board (sets to null).
    * 
    * @param vertexIndices Array of vertex indices to clear
    */
@@ -351,16 +417,22 @@ export class GoGame {
     // Get the connected group
     const group = this.getConnected(vertexIndex)
     
-    // If vertex is empty, nothing to remove
+    // If vertex is empty or ownership state, nothing to remove
     if (group.length === 0) {
       return false
+    }
+    
+    // Check that the vertex is an actual stone (not ownership state)
+    const state = this.board.get(vertexIndex)
+    if (!this.isStone(state)) {
+      return false // Can't remove ownership states or empty vertices
     }
     
     // Create board snapshot before removal
     const boardBefore = this.createBoardSnapshot()
     
     // Get the color of the group before removal
-    const groupColor = boardBefore.get(vertexIndex) as StoneColor
+    const groupColor = state
     
     // Remove all stones in the group
     this.removeStones(group)
@@ -398,7 +470,7 @@ export class GoGame {
    * @param boardSnapshot Board snapshot to serialize
    * @returns String representation of the board state
    */
-  private serializeBoardSnapshot(boardSnapshot: Map<number, StoneColor | null>): string {
+  private serializeBoardSnapshot(boardSnapshot: Map<number, VertexState>): string {
     const entries = Array.from(boardSnapshot.entries()).sort((a, b) => a[0] - b[0])
     return entries.map(([v, c]) => `${v}:${c}`).join(',')
   }
@@ -422,8 +494,9 @@ export class GoGame {
       return { legal: false, reason: 'Game is over' }
     }
     
-    // Check if vertex is empty
-    if (this.board.get(vertexIndex) !== null) {
+    // Check if vertex is empty (null only - ownership states can't be played on)
+    const currentState = this.board.get(vertexIndex)
+    if (!this.isEmpty(currentState)) {
       return { legal: false, reason: 'Vertex is already occupied' }
     }
     
@@ -460,7 +533,7 @@ export class GoGame {
         }
         let groupLiberties = 0
         for (const v of Array.from(groupAdjacentSet)) {
-          if (boardSnapshot.get(v) === null) {
+          if (this.isEmpty(boardSnapshot.get(v))) {
             groupLiberties++
           }
         }
@@ -500,26 +573,26 @@ export class GoGame {
           groupAdjacentSet.add(n)
         }
       }
-      let groupLiberties = 0
-      for (const v of Array.from(groupAdjacentSet)) {
-        if (boardSnapshot.get(v) === null) {
-          groupLiberties++
+        let groupLiberties = 0
+        for (const v of Array.from(groupAdjacentSet)) {
+          if (this.isEmpty(boardSnapshot.get(v))) {
+            groupLiberties++
+          }
+        }
+        
+        // If group has no liberties, mark all vertices as dead
+        if (groupLiberties === 0) {
+          for (const v of group) {
+            allDeadVertices.add(v)
+          }
         }
       }
       
-      // If group has no liberties, mark all vertices as dead
-      if (groupLiberties === 0) {
-        for (const v of group) {
-          allDeadVertices.add(v)
-        }
+      // Remove captured stones in snapshot
+      const allDeadVerticesArray = Array.from(allDeadVertices)
+      for (const v of allDeadVerticesArray) {
+        boardSnapshot.set(v, null)
       }
-    }
-    
-    // Remove captured stones in snapshot
-    const allDeadVerticesArray = Array.from(allDeadVertices)
-    for (const v of allDeadVerticesArray) {
-      boardSnapshot.set(v, null)
-    }
     
     // Check Ko rule: has this board state occurred before?
     const snapshotHash = this.serializeBoardSnapshot(boardSnapshot)
@@ -653,6 +726,9 @@ export class GoGame {
       // Switch player
       this.currentPlayer = this.currentPlayer === 'black' ? 'white' : 'black'
     }
+    
+    // Clear last played vertex (remove aura) when passing
+    this.lastPlayedVertex = null
   }
 
   /**
@@ -758,9 +834,9 @@ export class GoGame {
   /**
    * Gets the current board state.
    * 
-   * @returns Map from vertex index to stone color or null
+   * @returns Map from vertex index to vertex state (stone color, ownership, or empty)
    */
-  getBoard(): Map<number, StoneColor | null> {
+  getBoard(): Map<number, VertexState> {
     return new Map(this.board)
   }
 
@@ -816,6 +892,255 @@ export class GoGame {
    */
   getLastPlayedVertex(): number | null {
     return this.lastPlayedVertex
+  }
+
+  /**
+   * Determines ownership of empty spaces on the board.
+   * Returns a map of vertex indices to their ownership state.
+   * 
+   * @returns Map from vertex index to ownership state ('white_owned', 'black_owned', 'unowned', or error info)
+   * @throws Error if invalid state detected (empty vertices surrounded by empty/owned vertices)
+   */
+  determineOwnership(): Map<number, VertexState> {
+    const ownership = new Map<number, VertexState>()
+    const board = this.getBoard()
+    const processed = new Set<number>()
+    
+    // Find all empty vertices (null only, not ownership states)
+    const emptyVertices: number[] = []
+    for (let i = 0; i < this.vertices.length; i++) {
+      if (this.isEmpty(board.get(i))) {
+        emptyVertices.push(i)
+      }
+    }
+    
+    // Process each connected group of empty vertices
+    for (const emptyVertex of emptyVertices) {
+      if (processed.has(emptyVertex)) {
+        continue
+      }
+      
+      // Get all connected empty vertices
+      const emptyGroup = this.getConnected(emptyVertex)
+      
+      // Mark as processed
+      for (const v of emptyGroup) {
+        processed.add(v)
+      }
+      
+      // Get surrounding vertices
+      const surrounding = this.getSurroundingVertices(emptyGroup)
+      
+      // Collect stone colors from surrounding vertices
+      const surroundingColors = new Set<StoneColor | null>()
+      for (const v of surrounding) {
+        const color = board.get(v)
+        // Handle undefined (shouldn't happen, but TypeScript doesn't know that)
+        if (color === undefined) {
+          continue
+        }
+        // Only add valid StoneColor or null
+        if (color === 'black' || color === 'white' || color === null) {
+          surroundingColors.add(color)
+        }
+      }
+      
+      // Check for errors: surrounding vertices should only contain 'black' or 'white' (not null)
+      // If we have null in surrounding, it means empty vertices are adjacent, which is an error
+      const hasInvalidState = surroundingColors.has(null)
+      
+      if (hasInvalidState) {
+        // Error: invalid state detected
+        // Return error info - we'll handle this in the UI
+        for (const v of emptyGroup) {
+          ownership.set(v, 'unowned') // Default to unowned on error, but UI should show error
+        }
+        continue
+      }
+      
+      // Determine ownership based on surrounding colors
+      const hasBlack = surroundingColors.has('black')
+      const hasWhite = surroundingColors.has('white')
+      
+      let ownershipState: VertexState
+      if (hasBlack && hasWhite) {
+        // Mixed colors - unowned (dame)
+        ownershipState = 'unowned'
+      } else if (hasBlack && !hasWhite) {
+        // Only black - owned by black
+        ownershipState = 'black_owned'
+      } else if (hasWhite && !hasBlack) {
+        // Only white - owned by white
+        ownershipState = 'white_owned'
+      } else {
+        // No surrounding stones - unowned (shouldn't happen in normal play, but handle gracefully)
+        ownershipState = 'unowned'
+      }
+      
+      // Set ownership for all vertices in the group
+      for (const v of emptyGroup) {
+        ownership.set(v, ownershipState)
+      }
+    }
+    
+    return ownership
+  }
+
+  /**
+   * Gets ownership information for all empty vertices.
+   * Returns both the ownership map and any errors detected.
+   * 
+   * @returns Object with ownership map and error information
+   */
+  getOwnershipInfo(): { ownership: Map<number, VertexState>, hasError: boolean, errorMessage?: string } {
+    const board = this.getBoard()
+    const ownership = new Map<number, VertexState>()
+    const processed = new Set<number>()
+    let hasError = false
+    let errorMessage: string | undefined
+    
+    // Find all empty vertices (null only, not ownership states)
+    const emptyVertices: number[] = []
+    for (let i = 0; i < this.vertices.length; i++) {
+      if (this.isEmpty(board.get(i))) {
+        emptyVertices.push(i)
+      }
+    }
+    
+    // Process each connected group of empty vertices
+    for (const emptyVertex of emptyVertices) {
+      if (processed.has(emptyVertex)) {
+        continue
+      }
+      
+      // Get all connected empty vertices
+      const emptyGroup = this.getConnected(emptyVertex)
+      
+      // Mark as processed
+      for (const v of emptyGroup) {
+        processed.add(v)
+      }
+      
+      // Get surrounding vertices
+      const surrounding = this.getSurroundingVertices(emptyGroup)
+      
+      // Collect stone colors from surrounding vertices
+      const surroundingColors = new Set<StoneColor | null>()
+      const invalidVertices: number[] = []
+      for (const v of surrounding) {
+        const color = board.get(v)
+        // Handle undefined (shouldn't happen, but TypeScript doesn't know that)
+        if (color === undefined) {
+          invalidVertices.push(v)
+          continue
+        }
+        // If surrounding vertex is empty (null), that's an error - empty vertices shouldn't be adjacent to other empty vertices
+        if (color === null) {
+          invalidVertices.push(v)
+        }
+        // Only add valid StoneColor or null
+        if (color === 'black' || color === 'white' || color === null) {
+          surroundingColors.add(color)
+        }
+      }
+      
+      // Check for errors
+      if (invalidVertices.length > 0) {
+        hasError = true
+        errorMessage = `Invalid ownership state: empty vertices at ${emptyGroup.join(', ')} are surrounded by empty vertices at ${invalidVertices.join(', ')}. All dead stones must be removed before determining ownership.`
+        // Mark as unowned but error will be shown in UI
+        for (const v of emptyGroup) {
+          ownership.set(v, 'unowned')
+        }
+        continue
+      }
+      
+      // Determine ownership based on surrounding colors
+      const hasBlack = surroundingColors.has('black')
+      const hasWhite = surroundingColors.has('white')
+      
+      let ownershipState: VertexState
+      if (hasBlack && hasWhite) {
+        ownershipState = 'unowned'
+      } else if (hasBlack && !hasWhite) {
+        ownershipState = 'black_owned'
+      } else if (hasWhite && !hasBlack) {
+        ownershipState = 'white_owned'
+      } else {
+        ownershipState = 'unowned'
+      }
+      
+      // Set ownership for all vertices in the group
+      for (const v of emptyGroup) {
+        ownership.set(v, ownershipState)
+      }
+    }
+    
+    return { ownership, hasError, errorMessage }
+  }
+
+  /**
+   * Marks ownership of all empty vertices on the board.
+   * Converts all null vertices to ownership states (white_owned, black_owned, or unowned).
+   * This should only be called after all dead stones have been removed.
+   * Adds the ownership marking to move history so it can be undone/redone.
+   * 
+   * @returns True if ownership was marked successfully, false if there are errors
+   */
+  markOwnership(): boolean {
+    // Only allow marking ownership when game is over
+    if (!this.gameOver) {
+      return false
+    }
+
+    // Get ownership information
+    const ownershipInfo = this.getOwnershipInfo()
+    
+    // If there are errors, don't mark ownership
+    if (ownershipInfo.hasError) {
+      return false
+    }
+
+    const ownership = ownershipInfo.ownership
+    
+    // Check if there are any empty vertices to mark
+    if (ownership.size === 0) {
+      return false // No empty vertices to mark
+    }
+
+    // Create board snapshot before marking ownership
+    const boardBefore = this.createBoardSnapshot()
+    
+    // Apply ownership to all empty vertices
+    ownership.forEach((ownershipState, vertexIndex) => {
+      this.board.set(vertexIndex, ownershipState)
+    })
+    
+    // Create board snapshot after marking ownership
+    const boardAfter = this.createBoardSnapshot()
+    const boardHash = this.serializeBoard()
+    
+    // Create move object for ownership marking
+    const move = new Move(
+      null, // No stone placement, just ownership marking
+      this.currentPlayer, // Use current player (doesn't matter for ownership)
+      [], // No captures
+      boardBefore,
+      boardAfter,
+      boardHash
+    )
+    
+    // Add to history (truncate if we're not at the end)
+    if (this.historyIndex < this.moveHistory.length - 1) {
+      this.moveHistory = this.moveHistory.slice(0, this.historyIndex + 1)
+    }
+    this.moveHistory.push(move)
+    this.historyIndex++
+    
+    // Add new hash to set
+    this.boardStateHashes.add(boardHash)
+    
+    return true
   }
 }
 

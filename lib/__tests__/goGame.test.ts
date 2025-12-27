@@ -123,12 +123,19 @@ describe('GoGame', () => {
       expect(game.countLiberties(1)).toBe(1)
     })
 
-    it('should return empty array for empty vertex', () => {
+    it('should return all connected empty vertices for empty vertex', () => {
       const { vertices, edges } = createLineGraph()
       const game = new GoGame(vertices, edges)
 
+      // Since all vertices are empty and connected in a line, getConnected(0) should return all vertices
       const group = game.getConnected(0)
-      expect(group).toEqual([])
+      expect(group).toEqual([0, 1, 2, 3, 4])
+      
+      // Test with a single isolated vertex
+      const singleVertex = { vertices: [[0, 0, 0]], edges: [] }
+      const singleGame = new GoGame(singleVertex.vertices, singleVertex.edges)
+      const singleGroup = singleGame.getConnected(0)
+      expect(singleGroup).toEqual([0])
     })
   })
 

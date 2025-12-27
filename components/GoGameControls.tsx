@@ -20,6 +20,13 @@ export default function GoGameControls({ game, onStateChange }: GoGameControlsPr
     onStateChange()
   }
 
+  const handleDone = () => {
+    const success = game.markOwnership()
+    if (success) {
+      onStateChange()
+    }
+  }
+
   const handleUndo = () => {
     if (game.undo()) {
       onStateChange()
@@ -36,16 +43,29 @@ export default function GoGameControls({ game, onStateChange }: GoGameControlsPr
   const canUndo = game.canUndo()
   const canRedo = game.canRedo()
   const isGameOver = game.isGameOver()
+  
+  // Check if there are any empty vertices (null) - if not, ownership has been marked
+  const board = game.getBoard()
+  const hasEmptyVertices = Array.from(board.values()).some(state => state === null)
 
   return (
     <div className="go-game-controls">
-      <button
-        onClick={handlePass}
-        disabled={isGameOver}
-        className="pass-button"
-      >
-        Pass
-      </button>
+      {isGameOver && hasEmptyVertices ? (
+        <button
+          onClick={handleDone}
+          className="done-button"
+        >
+          Done
+        </button>
+      ) : (
+        <button
+          onClick={handlePass}
+          disabled={isGameOver}
+          className="pass-button"
+        >
+          Pass
+        </button>
+      )}
       <button
         onClick={handleUndo}
         disabled={!canUndo}

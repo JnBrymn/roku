@@ -9,7 +9,7 @@ import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeome
 import { Line2 } from 'three/examples/jsm/lines/Line2.js'
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
 import { parsePolyhedronData, createWireframeGeometry } from '@/lib/polyhedronUtils'
-import { GoGame, StoneColor } from '@/lib/goGame'
+import { GoGame, StoneColor, VertexState } from '@/lib/goGame'
 
 interface GoPolyhedronViewerProps {
   dataFile: string
@@ -54,50 +54,77 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
   /**
    * Updates sphere colors based on current game board state.
    * Called when game state changes.
+   * Handles ownership states which are now stored directly in the board.
    */
   const updateSphereColors = () => {
     const board = gameRef.current.getBoard()
+    
     const entries = Array.from(stonesRef.current.entries())
     for (const [vertexIndex, sphere] of entries) {
-      const color = board.get(vertexIndex)
+      const state = board.get(vertexIndex) ?? null
       const material = sphere.material as THREE.MeshStandardMaterial
       
-      if (color === null) {
+      if (state === null) {
         // Empty vertex - grey (lighter) and slightly transparent
         material.color.setHex(0xAAAAAA)
-        // Reset emissive properties that were set for white stones
         material.emissive.setHex(0x000000)
         material.emissiveIntensity = 0
         material.metalness = 0.0
-        material.roughness = 1.0 // Specular/shiny finish
+        material.roughness = 1.0
         material.transparent = true
         material.opacity = 0.7
-      } else if (color === 'black') {
+      } else if (state === 'black') {
         // Black stone - opaque
         material.color.setHex(0x000000)
-        // Reset emissive properties
         material.emissive.setHex(0x000000)
         material.emissiveIntensity = 0
         material.metalness = 0.0
-        material.roughness = 0.3 // Specular/shiny finish
+        material.roughness = 0.3
         material.transparent = false
         material.opacity = 1.0
-      } else if (color === 'white') {
+      } else if (state === 'white') {
         // White stone - bright white to show specularity, opaque
         material.color.setHex(0xFFFFFF)
         material.emissive.setHex(0x000000)
         material.emissiveIntensity = 1.5
         material.metalness = 0.0
-        material.roughness = 0.3 // Specular/shiny finish
+        material.roughness = 0.3
         material.transparent = false
         material.opacity = 1.0
+      } else if (state === 'black_owned') {
+        // Black-owned empty space - black but transparent (like void stone)
+        material.color.setHex(0x000000)
+        material.emissive.setHex(0x000000)
+        material.emissiveIntensity = 0
+        material.metalness = 0.0
+        material.roughness = 0.3
+        material.transparent = true
+        material.opacity = 0.7
+      } else if (state === 'white_owned') {
+        // White-owned empty space - white but transparent (like void stone)
+        material.color.setHex(0xFFFFFF)
+        material.emissive.setHex(0x000000)
+        material.emissiveIntensity = 1.5
+        material.metalness = 0.0
+        material.roughness = 0.3
+        material.transparent = true
+        material.opacity = 0.7
+      } else if (state === 'unowned') {
+        // Unowned (dame) - red transparent
+        material.color.setHex(0xFF0000)
+        material.emissive.setHex(0x000000)
+        material.emissiveIntensity = 0
+        material.metalness = 0.0
+        material.roughness = 1.0
+        material.transparent = true
+        material.opacity = 0.3
       }
       
       // Update cloned sphere with same color
       const clonedSphere = clonedStonesRef.current.get(vertexIndex)
       if (clonedSphere) {
         const clonedMaterial = clonedSphere.material as THREE.MeshStandardMaterial
-        if (color === null) {
+        if (state === null) {
           clonedMaterial.color.setHex(0xAAAAAA)
           clonedMaterial.emissive.setHex(0x000000)
           clonedMaterial.emissiveIntensity = 0
@@ -105,7 +132,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
           clonedMaterial.roughness = 1.0
           clonedMaterial.transparent = true
           clonedMaterial.opacity = 0.7
-        } else if (color === 'black') {
+        } else if (state === 'black') {
           clonedMaterial.color.setHex(0x000000)
           clonedMaterial.emissive.setHex(0x000000)
           clonedMaterial.emissiveIntensity = 0
@@ -113,7 +140,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
           clonedMaterial.roughness = 0.3
           clonedMaterial.transparent = false
           clonedMaterial.opacity = 1.0
-        } else if (color === 'white') {
+        } else if (state === 'white') {
           clonedMaterial.color.setHex(0xFFFFFF)
           clonedMaterial.emissive.setHex(0x000000)
           clonedMaterial.emissiveIntensity = 1.5
@@ -121,6 +148,30 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
           clonedMaterial.roughness = 0.3
           clonedMaterial.transparent = false
           clonedMaterial.opacity = 1.0
+        } else if (state === 'black_owned') {
+          clonedMaterial.color.setHex(0x000000)
+          clonedMaterial.emissive.setHex(0x000000)
+          clonedMaterial.emissiveIntensity = 0
+          clonedMaterial.metalness = 0.0
+          clonedMaterial.roughness = 0.3
+          clonedMaterial.transparent = true
+          clonedMaterial.opacity = 0.7
+        } else if (state === 'white_owned') {
+          clonedMaterial.color.setHex(0xFFFFFF)
+          clonedMaterial.emissive.setHex(0x000000)
+          clonedMaterial.emissiveIntensity = 1.5
+          clonedMaterial.metalness = 0.0
+          clonedMaterial.roughness = 0.3
+          clonedMaterial.transparent = true
+          clonedMaterial.opacity = 0.7
+        } else if (state === 'unowned') {
+          clonedMaterial.color.setHex(0xFF0000)
+          clonedMaterial.emissive.setHex(0x000000)
+          clonedMaterial.emissiveIntensity = 0
+          clonedMaterial.metalness = 0.0
+          clonedMaterial.roughness = 1.0
+          clonedMaterial.transparent = true
+          clonedMaterial.opacity = 0.3
         }
       }
     }
@@ -162,10 +213,10 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
     if (lastPlayedIndex !== null && vertexGroupRef.current) {
       const stone = stonesRef.current.get(lastPlayedIndex)
       const board = gameRef.current.getBoard()
-      const color = board.get(lastPlayedIndex)
+      const state = board.get(lastPlayedIndex)
       
-      // Only add aura if the stone still exists (not removed/captured)
-      if (stone && color !== null) {
+      // Only add aura if the stone still exists (not removed/captured) and is an actual stone
+      if (stone && (state === 'black' || state === 'white')) {
         // Create a slightly larger sphere for the aura
         const auraGeometry = new THREE.SphereGeometry(0.08, 32, 32)
         const auraMaterial = new THREE.MeshStandardMaterial({
@@ -949,16 +1000,20 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
             
             // Check if game is over (use ref to get latest game state)
             const isGameOver = gameRef.current.isGameOver()
+            const board = gameRef.current.getBoard()
+            const state = board.get(vertexIndex) ?? null
             
             if (isGameOver) {
-              // Game is over - allow removing groups by clicking on any vertex with a stone
-              if (material.color.getHex() !== 0xAAAAAA) {
+              // Game is over - allow removing groups by clicking on any vertex with an actual stone
+              // Don't allow removing ownership states
+              if (state === 'black' || state === 'white') {
                 // Clicked on a stone - remove the group
                 onRemoveGroupRef.current(vertexIndex)
               }
             } else {
-              // Game is active - only allow placing stones on empty (grey) vertices
-              if (material.color.getHex() === 0xAAAAAA) {
+              // Game is active - only allow placing stones on empty (null) vertices
+              // Ownership states shouldn't exist during active play, but check anyway
+              if (state === null) {
                 // Emit placeStone event - parent component will validate and update game state
                 onPlaceStoneRef.current(vertexIndex)
               }

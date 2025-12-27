@@ -14,6 +14,7 @@ export default function GoPolyhedronPage({ params }: { params: { slug: string } 
   const polyhedron = polyhedraData.find((p) => p.slug === params.slug)
   const [game, setGame] = useState<GoGame | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [ownershipError, setOwnershipError] = useState<string | null>(null)
   const [updateTrigger, setUpdateTrigger] = useState(0)
 
   // Initialize game when polyhedron data is loaded
@@ -69,6 +70,25 @@ export default function GoPolyhedronPage({ params }: { params: { slug: string } 
 
   const handleStateChange = () => {
     setUpdateTrigger(prev => prev + 1)
+    
+    // Check for ownership errors when game is over and there are empty vertices
+    if (game && game.isGameOver()) {
+      const board = game.getBoard()
+      const hasEmptyVertices = Array.from(board.values()).some(state => state === null)
+      
+      if (hasEmptyVertices) {
+        const ownershipInfo = game.getOwnershipInfo()
+        if (ownershipInfo.hasError) {
+          setOwnershipError(ownershipInfo.errorMessage || 'Invalid ownership state detected')
+        } else {
+          setOwnershipError(null)
+        }
+      } else {
+        setOwnershipError(null)
+      }
+    } else {
+      setOwnershipError(null)
+    }
   }
 
   if (!polyhedron) {
@@ -92,7 +112,7 @@ export default function GoPolyhedronPage({ params }: { params: { slug: string } 
       />
       <GoGameStatus game={game} />
       <GoGameControls game={game} onStateChange={handleStateChange} />
-      <GoErrorMessage message={errorMessage} />
+      <GoErrorMessage message={errorMessage || ownershipError} />
     </div>
   )
 }
