@@ -108,6 +108,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
     let vertexSpheres: THREE.Mesh[] = []
     let vertexGroup: THREE.Group
     let polyhedronData: { vertices: number[][], edges: number[][] }
+    let midradiusSphere: THREE.Mesh | null = null
 
     const init = async () => {
       // Check if canvas already exists INSIDE init (right before creating renderer)
@@ -227,7 +228,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
           `
         })
         
-        const midradiusSphere = new THREE.Mesh(sphereGeometry, sphereMaterial)
+        midradiusSphere = new THREE.Mesh(sphereGeometry, sphereMaterial)
         // Add to wireframe so it rotates with local axes
         wireframe.add(midradiusSphere)
       }
@@ -364,7 +365,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
       window.addEventListener('keydown', handleKeyDown)
       window.addEventListener('keyup', handleKeyUp)
 
-      // Click handler for turning spheres black
+      // Click handler for placing stones on vertex spheres
       handleClick = (e: MouseEvent) => {
         const target = e.target as HTMLElement
         // Only handle clicks on canvas
@@ -379,40 +380,34 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
         // Update raycaster with camera and mouse position
         raycaster.setFromCamera(mouse, camera)
         
-        // Find intersections with the visible spheres (recursive to include all spheres in group)
-        const intersects = raycaster.intersectObjects([vertexGroup], true)
+        // Check all intersections to see if midradiusSphere blocks vertex sphere clicks
+        const objectsToCheck: THREE.Object3D[] = [vertexGroup]
+        if (midradiusSphere) {
+          objectsToCheck.push(midradiusSphere)
+        }
+        const intersects = raycaster.intersectObjects(objectsToCheck, true)
         
         if (intersects.length > 0) {
-          // Get the clicked sphere mesh
-          const clickedSphere = intersects[0].object as THREE.Mesh
-          
-          // Get the world position of the clicked sphere
-          const worldPosition = new THREE.Vector3()
-          clickedSphere.getWorldPosition(worldPosition)
-          
-          // Transform world position back to original global coordinate system
-          // The initialRotationMatrix rotates the global axes, so we need to invert it
-          // to check the Z coordinate in the original (unrotated) global space
-          const inverseRotationMatrix = new THREE.Matrix4()
-          inverseRotationMatrix.copy(initialRotationMatrix).invert()
-          const globalPosition = worldPosition.clone().applyMatrix4(inverseRotationMatrix)
-          
-          // Check if sphere is behind the XY global plane (Z < 0 in original global coordinates)
-          // The XY plane divides space: Z > 0 is in front, Z < 0 is behind
-          if (globalPosition.z < 0) {
-            // Sphere is behind the XY global plane, don't allow clicking
-            console.log('Sphere behind XY plane, click ignored')
+          // Check if the first intersection is the midradiusSphere
+          const firstIntersection = intersects[0].object
+          if (midradiusSphere && firstIntersection === midradiusSphere) {
+            // MidradiusSphere blocks the click - don't trigger any event
             return
           }
           
-          // Get vertex index and check if it's empty (grey)
-          const vertexIndex = clickedSphere.userData.vertexIndex
-          const material = clickedSphere.material as THREE.MeshStandardMaterial
-          
-          // Only allow placing stones on empty (grey) vertices
-          if (material.color.getHex() === 0x808080) {
-            // Emit placeStone event - parent component will validate and update game state
-            onPlaceStoneRef.current(vertexIndex)
+          // Check if the first intersection is a vertex sphere
+          if (firstIntersection.parent === vertexGroup) {
+            const clickedSphere = firstIntersection as THREE.Mesh
+            
+            // Get vertex index and check if it's empty (grey)
+            const vertexIndex = clickedSphere.userData.vertexIndex
+            const material = clickedSphere.material as THREE.MeshStandardMaterial
+            
+            // Only allow placing stones on empty (grey) vertices
+            if (material.color.getHex() === 0x808080) {
+              // Emit placeStone event - parent component will validate and update game state
+              onPlaceStoneRef.current(vertexIndex)
+            }
           }
         }
       }
