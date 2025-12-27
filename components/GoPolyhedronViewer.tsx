@@ -28,6 +28,30 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
   const rotationRef = useRef({ pitch: 0, yaw: 0 })
   const keysRef = useRef<Set<string>>(new Set())
   const stonesRef = useRef<Map<number, THREE.Mesh>>(new Map())
+  
+  /**
+   * Updates sphere colors based on current game board state.
+   * Called when game state changes.
+   */
+  const updateSphereColors = () => {
+    const board = game.getBoard()
+    const entries = Array.from(stonesRef.current.entries())
+    for (const [vertexIndex, sphere] of entries) {
+      const color = board.get(vertexIndex)
+      const material = sphere.material as THREE.MeshStandardMaterial
+      
+      if (color === null) {
+        // Empty vertex - grey
+        material.color.setHex(0x808080)
+      } else if (color === 'black') {
+        // Black stone
+        material.color.setHex(0x000000)
+      } else if (color === 'white') {
+        // White stone
+        material.color.setHex(0xffffff)
+      }
+    }
+  }
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -441,25 +465,6 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
       animate()
       
       // Initial sphere color update
-      const updateSphereColors = () => {
-        const board = game.getBoard()
-        const entries = Array.from(stonesRef.current.entries())
-        for (const [vertexIndex, sphere] of entries) {
-          const color = board.get(vertexIndex)
-          const material = sphere.material as THREE.MeshStandardMaterial
-          
-          if (color === null) {
-            // Empty vertex - grey
-            material.color.setHex(0x808080)
-          } else if (color === 'black') {
-            // Black stone
-            material.color.setHex(0x000000)
-          } else if (color === 'white') {
-            // White stone
-            material.color.setHex(0xffffff)
-          }
-        }
-      }
       updateSphereColors()
     }
 
@@ -489,29 +494,9 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
   // Update sphere colors when game state changes
   useEffect(() => {
     if (game && stonesRef.current.size > 0) {
-      // Define updateSphereColors inside the effect to ensure it always uses the current game reference
-      const updateSphereColors = () => {
-        const board = game.getBoard()
-        const entries = Array.from(stonesRef.current.entries())
-        for (const [vertexIndex, sphere] of entries) {
-          const color = board.get(vertexIndex)
-          const material = sphere.material as THREE.MeshStandardMaterial
-          
-          if (color === null) {
-            // Empty vertex - grey
-            material.color.setHex(0x808080)
-          } else if (color === 'black') {
-            // Black stone
-            material.color.setHex(0x000000)
-          } else if (color === 'white') {
-            // White stone
-            material.color.setHex(0xffffff)
-          }
-        }
-      }
       updateSphereColors()
     }
-  }, [game, updateTrigger])
+  }, [game, onStateChange, updateTrigger])
 
   return (
     <div className="fullscreen-viewer">
