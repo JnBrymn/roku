@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { notFound } from 'next/navigation'
 import GoPolyhedronViewer from '@/components/GoPolyhedronViewer'
 import GoGameControls from '@/components/GoGameControls'
 import GoGameStatus from '@/components/GoGameStatus'
+import GoGameOver from '@/components/GoGameOver'
 import GoErrorMessage from '@/components/GoErrorMessage'
 import { polyhedraData } from '@/lib/polyhedronUtils'
 import { parsePolyhedronData } from '@/lib/polyhedronUtils'
@@ -68,7 +69,7 @@ export default function GoPolyhedronPage({ params }: { params: { slug: string } 
     }
   }
 
-  const handleStateChange = () => {
+  const handleStateChange = useCallback(() => {
     setUpdateTrigger(prev => prev + 1)
     
     // Check for ownership errors when game is over and there are empty vertices
@@ -89,7 +90,53 @@ export default function GoPolyhedronPage({ params }: { params: { slug: string } 
     } else {
       setOwnershipError(null)
     }
-  }
+  }, [game])
+
+  const handlePass = useCallback(() => {
+    if (!game) return
+    if (game.isGameOver()) return
+    game.pass()
+    handleStateChange()
+  }, [game, handleStateChange])
+
+  const handleUndo = useCallback(() => {
+    if (!game) return
+    if (game.undo()) {
+      handleStateChange()
+    }
+  }, [game, handleStateChange])
+
+  const handleRedo = useCallback(() => {
+    if (!game) return
+    if (game.redo()) {
+      handleStateChange()
+    }
+  }, [game, handleStateChange])
+
+  // Keyboard shortcuts: P for pass, U for undo, R for redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input field
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return
+      }
+
+      const key = e.key.toLowerCase()
+      
+      if (key === 'p') {
+        e.preventDefault()
+        handlePass()
+      } else if (key === 'u') {
+        e.preventDefault()
+        handleUndo()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [handlePass, handleUndo])
 
   if (!polyhedron) {
     notFound()
@@ -112,6 +159,7 @@ export default function GoPolyhedronPage({ params }: { params: { slug: string } 
       />
       <GoGameStatus game={game} />
       <GoGameControls game={game} onStateChange={handleStateChange} />
+      <GoGameOver game={game} />
       <GoErrorMessage message={errorMessage || ownershipError} />
     </div>
   )

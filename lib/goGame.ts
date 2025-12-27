@@ -895,6 +895,162 @@ export class GoGame {
   }
 
   /**
+   * Gets the count of captured stones for each player.
+   * Counts stones captured by each player throughout the game history.
+   * 
+   * @returns Object with:
+   *   - blackCaptures: number of black stones captured by white (shown in White area)
+   *   - whiteCaptures: number of white stones captured by black (shown in Black area)
+   */
+  getCapturedCounts(): { blackCaptures: number; whiteCaptures: number } {
+    // blackCaptures = black stones captured by white (displayed in White area)
+    // whiteCaptures = white stones captured by black (displayed in Black area)
+    let blackCaptures = 0
+    let whiteCaptures = 0
+    
+    // Iterate through move history up to current position
+    for (let i = 0; i <= this.historyIndex; i++) {
+      const move = this.moveHistory[i]
+      
+      // Skip removals (dead stones) - only count captures during play
+      if (move.vertexIndex === null) {
+        continue
+      }
+      
+      // Skip moves with no captures
+      if (move.captures.length === 0) {
+        continue
+      }
+      
+      // Get board state before this move to determine captured stone colors
+      const boardBefore = move.boardBefore
+      
+      // Count captured stones for each captured group
+      for (const initialVertex of move.captures) {
+        // Get the group from the board state before the move
+        const group = this.getConnected(initialVertex, boardBefore)
+        
+        // Determine the color of the captured stones
+        const capturedColor = boardBefore.get(initialVertex)
+        
+        if (capturedColor === 'black') {
+          // Black stones were captured (by white)
+          blackCaptures += group.length
+        } else if (capturedColor === 'white') {
+          // White stones were captured (by black)
+          whiteCaptures += group.length
+        }
+      }
+    }
+    
+    return { blackCaptures, whiteCaptures }
+  }
+
+  /**
+   * Gets the count of dead stones removed at the end of the game.
+   * Counts stones removed via removeGroup (moves where vertexIndex is null).
+   * 
+   * @returns Object with:
+   *   - blackDead: number of black stones removed (displayed in Black area)
+   *   - whiteDead: number of white stones removed (displayed in White area)
+   */
+  getDeadCounts(): { blackDead: number; whiteDead: number } {
+    let blackDead = 0
+    let whiteDead = 0
+    
+    // Iterate through move history up to current position
+    for (let i = 0; i <= this.historyIndex; i++) {
+      const move = this.moveHistory[i]
+      
+      // Dead stones are removals: vertexIndex is null and captures.length > 0
+      if (move.vertexIndex === null && move.captures.length > 0) {
+        // The captures array contains all vertices in the removed group
+        // The color is stored in move.color (which is the color of the removed group)
+        const removedColor = move.color
+        const count = move.captures.length
+        
+        if (removedColor === 'black') {
+          blackDead += count
+        } else if (removedColor === 'white') {
+          whiteDead += count
+        }
+      }
+    }
+    
+    return { blackDead, whiteDead }
+  }
+
+  /**
+   * Gets the count of occupied vertices (stones on the board).
+   * Counts vertices with 'black' or 'white' stones (not owned territory).
+   * 
+   * @returns Object with:
+   *   - blackOccupied: number of vertices with black stones (displayed in Black area)
+   *   - whiteOccupied: number of vertices with white stones (displayed in White area)
+   */
+  getOccupiedCounts(): { blackOccupied: number; whiteOccupied: number } {
+    let blackOccupied = 0
+    let whiteOccupied = 0
+    
+    const board = this.getBoard()
+    const states = Array.from(board.values())
+    for (const state of states) {
+      if (state === 'black') {
+        blackOccupied++
+      } else if (state === 'white') {
+        whiteOccupied++
+      }
+    }
+    
+    return { blackOccupied, whiteOccupied }
+  }
+
+  /**
+   * Gets the count of controlled vertices (owned territory).
+   * Counts vertices with black_owned or white_owned state on the current board.
+   * 
+   * @returns Object with:
+   *   - blackControlled: number of black_owned vertices (displayed in Black area)
+   *   - whiteControlled: number of white_owned vertices (displayed in White area)
+   */
+  getControlledCounts(): { blackControlled: number; whiteControlled: number } {
+    let blackControlled = 0
+    let whiteControlled = 0
+    
+    const board = this.getBoard()
+    const states = Array.from(board.values())
+    for (const state of states) {
+      if (state === 'black_owned') {
+        blackControlled++
+      } else if (state === 'white_owned') {
+        whiteControlled++
+      }
+    }
+    
+    return { blackControlled, whiteControlled }
+  }
+
+  /**
+   * Gets the count of uncontrolled vertices (unowned/dame points).
+   * Counts vertices with 'unowned' state on the current board.
+   * 
+   * @returns Number of unowned vertices
+   */
+  getUncontrolledCount(): number {
+    let uncontrolled = 0
+    
+    const board = this.getBoard()
+    const states = Array.from(board.values())
+    for (const state of states) {
+      if (state === 'unowned') {
+        uncontrolled++
+      }
+    }
+    
+    return uncontrolled
+  }
+
+  /**
    * Determines ownership of empty spaces on the board.
    * Returns a map of vertex indices to their ownership state.
    * 

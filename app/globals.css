@@ -194,32 +194,75 @@ canvas {
 /* Go Game UI Components */
 .go-game-status {
   position: fixed;
-  top: 80px;
-  left: 2rem;
+  top: 2rem;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 2rem;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.go-game-status .player-area {
   background: rgba(26, 26, 26, 0.9);
   padding: 1rem 1.5rem;
   border-radius: 8px;
-  border: 1px solid #2a2a2a;
-  z-index: 20;
+  border: 2px solid #2a2a2a;
+  min-width: 140px;
+  color: #ffffff;
+  transition: border-color 0.2s ease;
+  pointer-events: auto;
+}
+
+.go-game-status .player-area.active {
+  border: 2px solid #ffffff;
+}
+
+.go-game-status .player-area.black-area {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.go-game-status .player-area.white-area {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.go-game-status .player-label {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.go-game-status .metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  padding: 0.25rem 0;
+}
+
+.go-game-status .metric-row.total-row {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #444;
+  margin-bottom: 0;
+}
+
+.go-game-status .metric-label {
+  font-size: 0.9rem;
+  color: #888;
+  text-transform: lowercase;
+}
+
+.go-game-status .metric-value {
+  font-size: 1.1rem;
+  font-weight: 600;
   color: #ffffff;
 }
 
-.go-game-status .current-player {
-  font-size: 1.2rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-}
-
-.go-game-status .game-over-message {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: #667eea;
-  margin-bottom: 0.5rem;
-}
-
-.go-game-status .move-count {
-  font-size: 0.9rem;
-  color: #888;
+.go-game-status .metric-row.total-row .metric-value {
+  font-size: 1.3rem;
+  font-weight: 700;
 }
 
 .go-game-controls {
@@ -230,6 +273,77 @@ canvas {
   display: flex;
   gap: 1rem;
   z-index: 20;
+}
+
+.go-game-over {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  background: rgba(26, 26, 26, 0.95);
+  padding: 1.5rem 2rem;
+  border-radius: 8px;
+  border: 2px solid #667eea;
+  z-index: 30;
+  color: #ffffff;
+  min-width: 200px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.go-game-over .game-over-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  text-align: center;
+  color: #667eea;
+}
+
+.go-game-over .final-scores {
+  margin-bottom: 1rem;
+}
+
+.go-game-over .score-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+}
+
+.go-game-over .score-label {
+  color: #888;
+}
+
+.go-game-over .score-value {
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.go-game-over .winner-message {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #444;
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #667eea;
+}
+
+.go-game-over .return-to-main-button {
+  width: 100%;
+  background: rgba(102, 126, 234, 0.2);
+  border: 1px solid #667eea;
+  color: #ffffff;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.2s ease;
+  font-weight: 500;
+  margin-top: 1rem;
+}
+
+.go-game-over .return-to-main-button:hover {
+  background: rgba(102, 126, 234, 0.3);
 }
 
 .go-game-controls button {

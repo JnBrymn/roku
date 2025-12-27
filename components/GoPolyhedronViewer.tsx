@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
 import * as THREE from 'three'
 import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2.js'
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
@@ -10,6 +9,31 @@ import { Line2 } from 'three/examples/jsm/lines/Line2.js'
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
 import { parsePolyhedronData, createWireframeGeometry } from '@/lib/polyhedronUtils'
 import { GoGame, StoneColor, VertexState } from '@/lib/goGame'
+
+// Color constants
+const COLOR_EMPTY = 0xAAAAAA // Grey
+const COLOR_BLACK = 0x000000
+const COLOR_WHITE = 0xFFFFFF
+const COLOR_UNOWNED = 0xFF0000 // Red
+const COLOR_EMISSIVE_BLACK = 0x000000
+const COLOR_AURA = 0xFFFF00 // Yellow
+
+// Opacity constants
+const OPACITY_EMPTY = 0.7
+const OPACITY_BLACK_STONE = 1.0
+const OPACITY_WHITE_STONE = 1.0
+const OPACITY_BLACK_OWNED = 0.4
+const OPACITY_WHITE_OWNED = 0.7
+const OPACITY_UNOWNED = 0.3
+
+// Material property constants
+const EMISSIVE_INTENSITY_WHITE = 1.5
+const EMISSIVE_INTENSITY_AURA = 0.8
+const ROUGHNESS_EMPTY_UNOWNED = 1.0
+const ROUGHNESS_STONE_OWNED = 0.3
+const ROUGHNESS_INITIAL_SPHERE = 0.2
+const METALNESS_DEFAULT = 0.0
+const OPACITY_AURA = 0.6
 
 interface GoPolyhedronViewerProps {
   dataFile: string
@@ -28,7 +52,6 @@ interface GoPolyhedronViewerProps {
 
 export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone, onRemoveGroup, onStateChange, updateTrigger }: GoPolyhedronViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const router = useRouter()
   const rotationRef = useRef({ pitch: 0, yaw: 0 })
   const keysRef = useRef<Set<string>>(new Set())
   const stonesRef = useRef<Map<number, THREE.Mesh>>(new Map())
@@ -66,58 +89,58 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
       
       if (state === null) {
         // Empty vertex - grey (lighter) and slightly transparent
-        material.color.setHex(0xAAAAAA)
-        material.emissive.setHex(0x000000)
+        material.color.setHex(COLOR_EMPTY)
+        material.emissive.setHex(COLOR_EMISSIVE_BLACK)
         material.emissiveIntensity = 0
-        material.metalness = 0.0
-        material.roughness = 1.0
+        material.metalness = METALNESS_DEFAULT
+        material.roughness = ROUGHNESS_EMPTY_UNOWNED
         material.transparent = true
-        material.opacity = 0.7
+        material.opacity = OPACITY_EMPTY
       } else if (state === 'black') {
         // Black stone - opaque
-        material.color.setHex(0x000000)
-        material.emissive.setHex(0x000000)
+        material.color.setHex(COLOR_BLACK)
+        material.emissive.setHex(COLOR_EMISSIVE_BLACK)
         material.emissiveIntensity = 0
-        material.metalness = 0.0
-        material.roughness = 0.3
+        material.metalness = METALNESS_DEFAULT
+        material.roughness = ROUGHNESS_STONE_OWNED
         material.transparent = false
-        material.opacity = 1.0
+        material.opacity = OPACITY_BLACK_STONE
       } else if (state === 'white') {
         // White stone - bright white to show specularity, opaque
-        material.color.setHex(0xFFFFFF)
-        material.emissive.setHex(0x000000)
-        material.emissiveIntensity = 1.5
-        material.metalness = 0.0
-        material.roughness = 0.3
+        material.color.setHex(COLOR_WHITE)
+        material.emissive.setHex(COLOR_EMISSIVE_BLACK)
+        material.emissiveIntensity = EMISSIVE_INTENSITY_WHITE
+        material.metalness = METALNESS_DEFAULT
+        material.roughness = ROUGHNESS_STONE_OWNED
         material.transparent = false
-        material.opacity = 1.0
+        material.opacity = OPACITY_WHITE_STONE
       } else if (state === 'black_owned') {
         // Black-owned empty space - black but transparent (like void stone)
-        material.color.setHex(0x000000)
-        material.emissive.setHex(0x000000)
+        material.color.setHex(COLOR_BLACK)
+        material.emissive.setHex(COLOR_EMISSIVE_BLACK)
         material.emissiveIntensity = 0
-        material.metalness = 0.0
-        material.roughness = 0.3
+        material.metalness = METALNESS_DEFAULT
+        material.roughness = ROUGHNESS_STONE_OWNED
         material.transparent = true
-        material.opacity = 0.7
+        material.opacity = OPACITY_BLACK_OWNED
       } else if (state === 'white_owned') {
         // White-owned empty space - white but transparent (like void stone)
-        material.color.setHex(0xFFFFFF)
-        material.emissive.setHex(0x000000)
-        material.emissiveIntensity = 1.5
-        material.metalness = 0.0
-        material.roughness = 0.3
+        material.color.setHex(COLOR_WHITE)
+        material.emissive.setHex(COLOR_EMISSIVE_BLACK)
+        material.emissiveIntensity = EMISSIVE_INTENSITY_WHITE
+        material.metalness = METALNESS_DEFAULT
+        material.roughness = ROUGHNESS_STONE_OWNED
         material.transparent = true
-        material.opacity = 0.7
+        material.opacity = OPACITY_WHITE_OWNED
       } else if (state === 'unowned') {
         // Unowned (dame) - red transparent
-        material.color.setHex(0xFF0000)
-        material.emissive.setHex(0x000000)
+        material.color.setHex(COLOR_UNOWNED)
+        material.emissive.setHex(COLOR_EMISSIVE_BLACK)
         material.emissiveIntensity = 0
-        material.metalness = 0.0
-        material.roughness = 1.0
+        material.metalness = METALNESS_DEFAULT
+        material.roughness = ROUGHNESS_EMPTY_UNOWNED
         material.transparent = true
-        material.opacity = 0.3
+        material.opacity = OPACITY_UNOWNED
       }
       
       // Update cloned sphere with same color
@@ -125,53 +148,53 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
       if (clonedSphere) {
         const clonedMaterial = clonedSphere.material as THREE.MeshStandardMaterial
         if (state === null) {
-          clonedMaterial.color.setHex(0xAAAAAA)
-          clonedMaterial.emissive.setHex(0x000000)
+          clonedMaterial.color.setHex(COLOR_EMPTY)
+          clonedMaterial.emissive.setHex(COLOR_EMISSIVE_BLACK)
           clonedMaterial.emissiveIntensity = 0
-          clonedMaterial.metalness = 0.0
-          clonedMaterial.roughness = 1.0
+          clonedMaterial.metalness = METALNESS_DEFAULT
+          clonedMaterial.roughness = ROUGHNESS_EMPTY_UNOWNED
           clonedMaterial.transparent = true
-          clonedMaterial.opacity = 0.7
+          clonedMaterial.opacity = OPACITY_EMPTY
         } else if (state === 'black') {
-          clonedMaterial.color.setHex(0x000000)
-          clonedMaterial.emissive.setHex(0x000000)
+          clonedMaterial.color.setHex(COLOR_BLACK)
+          clonedMaterial.emissive.setHex(COLOR_EMISSIVE_BLACK)
           clonedMaterial.emissiveIntensity = 0
-          clonedMaterial.metalness = 0.0
-          clonedMaterial.roughness = 0.3
+          clonedMaterial.metalness = METALNESS_DEFAULT
+          clonedMaterial.roughness = ROUGHNESS_STONE_OWNED
           clonedMaterial.transparent = false
-          clonedMaterial.opacity = 1.0
+          clonedMaterial.opacity = OPACITY_BLACK_STONE
         } else if (state === 'white') {
-          clonedMaterial.color.setHex(0xFFFFFF)
-          clonedMaterial.emissive.setHex(0x000000)
-          clonedMaterial.emissiveIntensity = 1.5
-          clonedMaterial.metalness = 0.0
-          clonedMaterial.roughness = 0.3
+          clonedMaterial.color.setHex(COLOR_WHITE)
+          clonedMaterial.emissive.setHex(COLOR_EMISSIVE_BLACK)
+          clonedMaterial.emissiveIntensity = EMISSIVE_INTENSITY_WHITE
+          clonedMaterial.metalness = METALNESS_DEFAULT
+          clonedMaterial.roughness = ROUGHNESS_STONE_OWNED
           clonedMaterial.transparent = false
-          clonedMaterial.opacity = 1.0
+          clonedMaterial.opacity = OPACITY_WHITE_STONE
         } else if (state === 'black_owned') {
-          clonedMaterial.color.setHex(0x000000)
-          clonedMaterial.emissive.setHex(0x000000)
+          clonedMaterial.color.setHex(COLOR_BLACK)
+          clonedMaterial.emissive.setHex(COLOR_EMISSIVE_BLACK)
           clonedMaterial.emissiveIntensity = 0
-          clonedMaterial.metalness = 0.0
-          clonedMaterial.roughness = 0.3
+          clonedMaterial.metalness = METALNESS_DEFAULT
+          clonedMaterial.roughness = ROUGHNESS_STONE_OWNED
           clonedMaterial.transparent = true
-          clonedMaterial.opacity = 0.7
+          clonedMaterial.opacity = OPACITY_BLACK_OWNED
         } else if (state === 'white_owned') {
-          clonedMaterial.color.setHex(0xFFFFFF)
-          clonedMaterial.emissive.setHex(0x000000)
-          clonedMaterial.emissiveIntensity = 1.5
-          clonedMaterial.metalness = 0.0
-          clonedMaterial.roughness = 0.3
+          clonedMaterial.color.setHex(COLOR_WHITE)
+          clonedMaterial.emissive.setHex(COLOR_EMISSIVE_BLACK)
+          clonedMaterial.emissiveIntensity = EMISSIVE_INTENSITY_WHITE
+          clonedMaterial.metalness = METALNESS_DEFAULT
+          clonedMaterial.roughness = ROUGHNESS_STONE_OWNED
           clonedMaterial.transparent = true
-          clonedMaterial.opacity = 0.7
+          clonedMaterial.opacity = OPACITY_WHITE_OWNED
         } else if (state === 'unowned') {
-          clonedMaterial.color.setHex(0xFF0000)
-          clonedMaterial.emissive.setHex(0x000000)
+          clonedMaterial.color.setHex(COLOR_UNOWNED)
+          clonedMaterial.emissive.setHex(COLOR_EMISSIVE_BLACK)
           clonedMaterial.emissiveIntensity = 0
-          clonedMaterial.metalness = 0.0
-          clonedMaterial.roughness = 1.0
+          clonedMaterial.metalness = METALNESS_DEFAULT
+          clonedMaterial.roughness = ROUGHNESS_EMPTY_UNOWNED
           clonedMaterial.transparent = true
-          clonedMaterial.opacity = 0.3
+          clonedMaterial.opacity = OPACITY_UNOWNED
         }
       }
     }
@@ -220,11 +243,11 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
         // Create a slightly larger sphere for the aura
         const auraGeometry = new THREE.SphereGeometry(0.08, 32, 32)
         const auraMaterial = new THREE.MeshStandardMaterial({
-          color: 0xffff00, // Yellow
-          emissive: 0xffff00,
-          emissiveIntensity: 0.8,
+          color: COLOR_AURA,
+          emissive: COLOR_AURA,
+          emissiveIntensity: EMISSIVE_INTENSITY_AURA,
           transparent: true,
-          opacity: 0.6,
+          opacity: OPACITY_AURA,
           side: THREE.DoubleSide
         })
         const aura = new THREE.Mesh(auraGeometry, auraMaterial)
@@ -244,11 +267,11 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
             const cloneScale = 3.0 // Match the cloned wireframe scale
             const clonedAuraGeometry = new THREE.SphereGeometry(0.08 * cloneScale, 32, 32)
             const clonedAuraMaterial = new THREE.MeshStandardMaterial({
-              color: 0xffff00, // Yellow
-              emissive: 0xffff00,
-              emissiveIntensity: 0.8,
+              color: COLOR_AURA,
+              emissive: COLOR_AURA,
+              emissiveIntensity: EMISSIVE_INTENSITY_AURA,
               transparent: true,
-              opacity: 0.6,
+              opacity: OPACITY_AURA,
               side: THREE.DoubleSide,
               clippingPlanes: [new THREE.Plane(new THREE.Vector3(6, 6, 6).normalize().negate(), 0)]
             })
@@ -842,11 +865,11 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
         // Create grey sphere at each vertex (stone sphere)
         const sphereGeometry = new THREE.SphereGeometry(0.06, 32, 32)
         const sphereMaterial = new THREE.MeshStandardMaterial({ 
-          color: 0xAAAAAA, // Lighter grey
-          metalness: 0.0,
-          roughness: 0.2, // Specular/shiny finish
+          color: COLOR_EMPTY,
+          metalness: METALNESS_DEFAULT,
+          roughness: ROUGHNESS_INITIAL_SPHERE,
           transparent: true,
-          opacity: 0.7 // Slightly transparent for empty vertices
+          opacity: OPACITY_EMPTY
         })
         const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial)
         sphere.position.copy(vertexPos)
@@ -875,11 +898,11 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
           // Create cloned sphere at scaled position
           const clonedSphereGeometry = new THREE.SphereGeometry(0.06 * cloneScale, 32, 32)
           const clonedSphereMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0xAAAAAA, // Lighter grey (will be updated by updateSphereColors)
-            metalness: 0.0,
-            roughness: 0.2,
+            color: COLOR_EMPTY,
+            metalness: METALNESS_DEFAULT,
+            roughness: ROUGHNESS_INITIAL_SPHERE,
             transparent: true,
-            opacity: 0.7,
+            opacity: OPACITY_EMPTY,
             clippingPlanes: [clonedClippingPlane]
           })
           const clonedSphere = new THREE.Mesh(clonedSphereGeometry, clonedSphereMaterial)
@@ -947,10 +970,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
         const key = e.key.toLowerCase()
         keysRef.current.add(key)
         
-        // Handle ESC to go back
-        if (key === 'escape') {
-          router.push('/')
-        }
+        // ESC functionality removed
       }
 
       handleKeyUp = (e: KeyboardEvent) => {
@@ -1145,7 +1165,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
         renderer.dispose()
       }
     }
-  }, [dataFile, router, game]) // Removed onPlaceStone and onStateChange from dependencies - using refs instead
+      }, [dataFile, game]) // Removed onPlaceStone and onStateChange from dependencies - using refs instead
   
   // Update sphere colors and aura when game state changes
   useEffect(() => {
@@ -1159,17 +1179,6 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
 
   return (
     <div className="fullscreen-viewer">
-      <div className="viewer-header">
-        <h2>{name} - Play Go</h2>
-        <button onClick={() => router.push('/')} className="back-button">
-          ← Back
-        </button>
-      </div>
-      <div className="controls-hint">
-        {isGameOver 
-          ? 'Click on any stone to remove dead groups • Use WASD to rotate • ESC to go back'
-          : 'Click on front-facing grey vertices to place stones • Use WASD to rotate • ESC to go back'}
-      </div>
       <div ref={containerRef} className="fullscreen-canvas" style={{ position: 'relative' }}>
         {isGameOver && (
           <div style={{
