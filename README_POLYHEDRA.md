@@ -29,7 +29,7 @@ python3 scripts/convert_obj_to_format.py ~/Downloads/polyhedron.obj public/data/
 ```
 
 ### 2. Near-Miss Johnson Solids - Polyhedronisme
-**URL**: w
+**URL**: https://levskaya.github.io/polyhedronisme/
 
 Best for: Near-miss Johnson solids and complex polyhedra using Conway notation
 
@@ -298,6 +298,45 @@ MIDRADIUS:
      "Expanded Truncated Icosahedron"
    ```
 5. Add to `polyhedraData` (script shows the exact code)
+
+## Discovering Available Polyhedra
+
+### Finding Large Spherical Polyhedra (> 80 vertices)
+
+Use the discovery script to find polyhedra from both sources:
+
+```bash
+python3 scripts/discover_polyhedra.py
+```
+
+This script will:
+- Discover polyhedra from `polyhedra.tessera.li` by checking known patterns
+- List known Conway notation recipes for `polyhedronisme`
+- Filter for large spherical polyhedra (> 80 vertices)
+- Save results to `discovered_polyhedra.json`
+
+**Note**: For `polyhedronisme`, the script lists known recipes but cannot automatically download them (requires browser JavaScript execution). Use the browser console method described above.
+
+**Example output:**
+- Lists all discovered polyhedra with vertex counts
+- Highlights those with > 80 vertices
+- Provides direct URLs for downloading
+
+### Manual Discovery Methods
+
+**For polyhedra.tessera.li:**
+1. Browse the site: https://polyhedra.tessera.li/
+2. Each polyhedron page shows vertex/edge/face counts
+3. Look for polyhedra with high vertex counts (e.g., Truncated Icosidodecahedron has 120 vertices)
+
+**For polyhedronisme:**
+1. Try Conway notation recipes with high iteration counts (e.g., `C1000atI` = 1000 iterations of operations on icosahedron)
+2. Common patterns for large polyhedra:
+   - `C{N}atI` - Truncated icosahedron variants
+   - `C{N}atD` - Truncated dodecahedron variants
+   - `C{N}aatI` - Expanded truncated icosahedron
+   - `C{N}stI` - Snub variants
+   - Where `{N}` is iteration count (higher = more vertices)
 
 ## Resources
 

@@ -1,0 +1,630 @@
+{
+  "tessera_li": [
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "triangular-cupola",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "square-cupola",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "pentagonal-cupola",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "pentagonal-rotunda",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "elongated-triangular-pyramid",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "elongated-square-pyramid",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "elongated-pentagonal-pyramid",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "gyroelongated-square-pyramid",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "gyroelongated-pentagonal-pyramid",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "triangular-bipyramid",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "pentagonal-bipyramid",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "elongated-triangular-bipyramid",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "elongated-square-bipyramid",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "elongated-pentagonal-bipyramid",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "gyroelongated-square-bipyramid",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "truncated-icosidodecahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "chamfered-dodecahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "snub-dodecahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "snub-cube",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "truncated-icosahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "truncated-dodecahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "rhombicosidodecahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "rhombicuboctahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "icosidodecahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "cuboctahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "truncated-tetrahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "truncated-cube",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "truncated-octahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "expanded-tetrahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "expanded-cube",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "expanded-octahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "expanded-dodecahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "expanded-icosahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "snub-tetrahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "snub-octahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "snub-icosahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "chamfered-tetrahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "chamfered-cube",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "chamfered-octahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "chamfered-icosahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "rhombi-tetrahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "rhombi-cube",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "rhombi-octahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "rhombi-dodecahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "rhombi-icosahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "gyroelongated-tetrahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "gyroelongated-cube",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "gyroelongated-octahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "gyroelongated-dodecahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "gyroelongated-icosahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "elongated-tetrahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "elongated-cube",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "elongated-octahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "elongated-dodecahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "elongated-icosahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "augmented-tetrahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "augmented-cube",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "augmented-octahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "augmented-dodecahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "augmented-icosahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "diminished-tetrahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "diminished-cube",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "diminished-octahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "diminished-dodecahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "diminished-icosahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "gyrate-tetrahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "gyrate-cube",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "gyrate-octahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "gyrate-dodecahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "gyrate-icosahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "parabiaugmented-tetrahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "parabiaugmented-cube",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "parabiaugmented-octahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "parabiaugmented-dodecahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "parabiaugmented-icosahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "metabiaugmented-tetrahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "metabiaugmented-cube",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "metabiaugmented-octahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "metabiaugmented-dodecahedron",
+      "source": "tessera.li"
+    },
+    {
+      "name": "Polyhedra Viewer",
+      "slug": "metabiaugmented-icosahedron",
+      "source": "tessera.li"
+    }
+  ],
+  "polyhedronisme": [
+    {
+      "recipe": "C1000aatI",
+      "name": "Expanded Truncated Icosahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000stI",
+      "name": "Snub Rectified Truncated Icosahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C400A1atI",
+      "name": "Rectified Truncated Icosahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C200atI",
+      "name": "Truncated Icosahedron (expanded)",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000atI",
+      "name": "Truncated Icosahedron (highly expanded)",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C500atI",
+      "name": "Truncated Icosahedron (moderately expanded)",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000aD",
+      "name": "Expanded Dodecahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C500aD",
+      "name": "Moderately Expanded Dodecahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000aO",
+      "name": "Expanded Octahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000aC",
+      "name": "Expanded Cube",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000aT",
+      "name": "Expanded Tetrahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000atD",
+      "name": "Truncated Dodecahedron (expanded)",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000atO",
+      "name": "Truncated Octahedron (expanded)",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000atC",
+      "name": "Truncated Cube (expanded)",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000atT",
+      "name": "Truncated Tetrahedron (expanded)",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000jtI",
+      "name": "Joined Truncated Icosahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000jtD",
+      "name": "Joined Truncated Dodecahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000btI",
+      "name": "Beveled Truncated Icosahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000btD",
+      "name": "Beveled Truncated Dodecahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000ctI",
+      "name": "Chamfered Truncated Icosahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000ctD",
+      "name": "Chamfered Truncated Dodecahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000ktI",
+      "name": "Kis Truncated Icosahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000ktD",
+      "name": "Kis Truncated Dodecahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000etI",
+      "name": "Exploded Truncated Icosahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000etD",
+      "name": "Exploded Truncated Dodecahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000rtI",
+      "name": "Reflected Truncated Icosahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000rtD",
+      "name": "Reflected Truncated Dodecahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000gtI",
+      "name": "Gyro Truncated Icosahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000gtD",
+      "name": "Gyro Truncated Dodecahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000stI",
+      "name": "Snub Truncated Icosahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000stD",
+      "name": "Snub Truncated Dodecahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000ptI",
+      "name": "Propellor Truncated Icosahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000ptD",
+      "name": "Propellor Truncated Dodecahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000wtI",
+      "name": "Whirl Truncated Icosahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000wtD",
+      "name": "Whirl Truncated Dodecahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000qtI",
+      "name": "Quinto Truncated Icosahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    },
+    {
+      "recipe": "C1000qtD",
+      "name": "Quinto Truncated Dodecahedron",
+      "source": "polyhedronisme",
+      "note": "Requires manual download via browser console"
+    }
+  ],
+  "large_spherical": [],
+  "_note": "The polyhedronisme recipes above are NOT exhaustive. You can create arbitrarily many polyhedra by combining Conway notation operations. See scripts/CONWAY_NOTATION_GUIDE.md for details on creating your own recipes."
+}
