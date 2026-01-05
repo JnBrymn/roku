@@ -8,6 +8,19 @@ interface GoInviteDialogProps {
   polyhedronSlug: string
 }
 
+// Generate UUID v4 - fallback if crypto.randomUUID is not available
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  // Fallback UUID v4 generator
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+}
+
 export default function GoInviteDialog({ open, onClose, polyhedronSlug }: GoInviteDialogProps) {
   const router = useRouter()
 
@@ -15,7 +28,7 @@ export default function GoInviteDialog({ open, onClose, polyhedronSlug }: GoInvi
 
   const handleRoleSelect = (otherPlayerRole: 'black' | 'white') => {
     // Generate session ID
-    const sessionId = crypto.randomUUID()
+    const sessionId = generateUUID()
     
     // Navigate to new session with opposite role (your role)
     // Add invite flag and otherRole param so we can copy the other player's URL on page load

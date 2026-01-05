@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import PolyhedronViewer from '@/components/PolyhedronViewer'
-import { polyhedraData } from '@/lib/polyhedronUtils'
+import PolyhedronCarousel from '@/components/PolyhedronCarousel'
 
 export default function Home() {
   useEffect(() => {
@@ -49,15 +48,7 @@ export default function Home() {
       </header>
       
       <div className="container">
-        <div className="polyhedra-grid">
-          {polyhedraData.map((polyhedron) => (
-            <PolyhedronViewer
-              key={polyhedron.name}
-              dataFile={polyhedron.file}
-              name={polyhedron.name}
-            />
-          ))}
-        </div>
+        <PolyhedronCarousel />
       </div>
     </>
   )

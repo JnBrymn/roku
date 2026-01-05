@@ -13,7 +13,7 @@
 
 2. **Try recipes**: Enter any Conway notation recipe in the URL or the recipe box on the site. For example:
    - `https://levskaya.github.io/polyhedronisme/?recipe=C1000qtI` - Quinto truncated icosahedron
-   - `https://levskaya.github.io/polyhedronisme/?recipe=A10egaT` - A10 exploded gyro ambo tetrahedron
+   - `https://levskaya.github.io/polyhedronisme/?recipe=A10egaT` - exploded gyro ambo tetrahedron
    - `https://levskaya.github.io/polyhedronisme/?recipe=J92` - 92nd Johnson solid
 
 3. **Experiment**: You can combine operations in any order to create new polyhedra.
@@ -47,7 +47,7 @@ python3 scripts/convert_polyhedronisme.py input.obj output_name "Display Name"
 
 Example:
 ```bash
-python3 scripts/convert_polyhedronisme.py IGNORED/polyhedronisme-A10dooI.obj A10dooI "A10 Dual Ortho Ortho Icosahedron"
+python3 scripts/convert_polyhedronisme.py IGNORED/polyhedronisme-A10dooI.obj A10dooI "Dual Ortho Ortho Icosahedron"
 ```
 
 This script:
@@ -65,7 +65,7 @@ Edit `lib/polyhedronUtils.ts` and add the entry to the `polyhedraData` array:
 ```typescript
 export const polyhedraData = [
   // ... existing polyhedra ...
-  { file: '/data/A10dooI.txt', name: 'A10 Dual Ortho Ortho Icosahedron', slug: 'A10dooI' }
+  { file: '/data/A10dooI.txt', name: 'Dual Ortho Ortho Icosahedron', slug: 'A10dooI' }
 ]
 ```
 
@@ -78,7 +78,7 @@ The conversion script will show you the exact code to add.
 python3 scripts/download_polyhedronisme.py A10dooI IGNORED
 
 # Convert
-python3 scripts/convert_polyhedronisme.py IGNORED/polyhedronisme-A10dooI.obj A10dooI "A10 Dual Ortho Ortho Icosahedron"
+python3 scripts/convert_polyhedronisme.py IGNORED/polyhedronisme-A10dooI.obj A10dooI "Dual Ortho Ortho Icosahedron"
 
 # Then add the shown code snippet to lib/polyhedronUtils.ts
 ```

@@ -12,6 +12,8 @@ interface PolyhedronViewerProps {
 
 export default function PolyhedronViewer({ dataFile, name }: PolyhedronViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
+  const animationIdRef = useRef<number | null>(null)
   const router = useRouter()
   const [info, setInfo] = useState<string>('')
   
@@ -24,15 +26,19 @@ export default function PolyhedronViewer({ dataFile, name }: PolyhedronViewerPro
 
     let scene: THREE.Scene
     let camera: THREE.PerspectiveCamera
-    let renderer: THREE.WebGLRenderer
     let wireframe: THREE.LineSegments
-    let animationId: number
 
     const init = async () => {
+      // Check if component was unmounted before async completes (React Strict Mode)
+      if (!containerRef.current) return
+      
       // Fetch and parse data
       const response = await fetch(dataFile)
       const text = await response.text()
       const data = parsePolyhedronData(text)
+      
+      // Check again after async fetch (component might have unmounted)
+      if (!containerRef.current) return
       
       setInfo(`${data.vertices.length} vertices, ${data.edges.length} edges`)
 
@@ -45,10 +51,19 @@ export default function PolyhedronViewer({ dataFile, name }: PolyhedronViewerPro
       camera.position.set(3, 3, 3)
       camera.lookAt(0, 0, 0)
 
-      // Create renderer
-      renderer = new THREE.WebGLRenderer({ antialias: true })
+      // Create renderer and store in ref IMMEDIATELY (before any DOM operations)
+      const renderer = new THREE.WebGLRenderer({ antialias: true })
       renderer.setSize(400, 400)
-      containerRef.current?.appendChild(renderer.domElement)
+      rendererRef.current = renderer
+      
+      // Final check before appending to DOM
+      if (!containerRef.current) {
+        renderer.dispose()
+        rendererRef.current = null
+        return
+      }
+      
+      containerRef.current.appendChild(renderer.domElement)
 
       // Create wireframe
       const geometry = createWireframeGeometry(data.vertices, data.edges)
@@ -69,12 +84,13 @@ export default function PolyhedronViewer({ dataFile, name }: PolyhedronViewerPro
 
       // Animation loop
       const animate = () => {
-        animationId = requestAnimationFrame(animate)
+        if (!rendererRef.current || !wireframe) return // Guard against cleanup
+        animationIdRef.current = requestAnimationFrame(animate)
         
         wireframe.rotation.x += 0.005
         wireframe.rotation.y += 0.01
         
-        renderer.render(scene, camera)
+        rendererRef.current.render(scene, camera)
       }
 
       animate()
@@ -84,12 +100,23 @@ export default function PolyhedronViewer({ dataFile, name }: PolyhedronViewerPro
 
     // Cleanup
     return () => {
-      if (animationId) {
-        cancelAnimationFrame(animationId)
+      if (animationIdRef.current !== null) {
+        cancelAnimationFrame(animationIdRef.current)
+        animationIdRef.current = null
       }
-      if (renderer && containerRef.current) {
-        containerRef.current.removeChild(renderer.domElement)
-        renderer.dispose()
+      // Always dispose renderer if it exists, even if container is gone
+      if (rendererRef.current) {
+        // Try to remove canvas from DOM if container still exists
+        if (containerRef.current) {
+          try {
+            containerRef.current.removeChild(rendererRef.current.domElement)
+          } catch (e) {
+            // Element may have already been removed - that's okay
+          }
+        }
+        // Always dispose the renderer to free WebGL context
+        rendererRef.current.dispose()
+        rendererRef.current = null
       }
     }
   }, [dataFile])

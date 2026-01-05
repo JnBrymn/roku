@@ -55,13 +55,16 @@ interface GoPolyhedronViewerProps {
 export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone, onRemoveGroup, onStateChange, updateTrigger, canMakeMove = true }: GoPolyhedronViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const rotationRef = useRef({ pitch: 0, yaw: 0 })
-  const keysRef = useRef<Set<string>>(new Set())
   const stonesRef = useRef<Map<number, THREE.Mesh>>(new Map())
   const clonedStonesRef = useRef<Map<number, THREE.Mesh>>(new Map())
   const auraRef = useRef<THREE.Mesh | null>(null)
   const clonedAuraRef = useRef<THREE.Mesh | null>(null)
   const vertexGroupRef = useRef<THREE.Group | null>(null)
   const clonedVertexGroupRef = useRef<THREE.Group | null>(null)
+  // Mouse drag state
+  const isDraggingRef = useRef(false)
+  const lastMousePositionRef = useRef<{ x: number; y: number } | null>(null)
+  const mouseDownPositionRef = useRef<{ x: number; y: number } | null>(null)
   // Store callbacks in refs to prevent re-renders when they change
   const onPlaceStoneRef = useRef(onPlaceStone)
   const onRemoveGroupRef = useRef(onRemoveGroup)
@@ -297,33 +300,37 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
   useEffect(() => {
     if (!containerRef.current) return
 
-    // Allow clicks on canvas for placing stones, but prevent dragging
+    // Prevent text selection and image dragging, but allow canvas interactions
     const preventDrag = (e: MouseEvent) => {
       const target = e.target as HTMLElement
       // Allow clicks on the back button
       if (target.closest('.back-button')) {
         return
       }
-      // Allow clicks on canvas (for placing stones)
+      // Allow all interactions on canvas (for placing stones and dragging)
       if (target.tagName === 'CANVAS') {
         return
       }
-      // Prevent other mouse interactions
-      if (e.type === 'mousemove' || e.type === 'dragstart') {
+      // Prevent dragstart on other elements (like images)
+      if (e.type === 'dragstart') {
         e.preventDefault()
         e.stopPropagation()
       }
     }
 
     const preventTouchDrag = (e: TouchEvent) => {
-      // Allow touch clicks but prevent dragging
+      // Allow touch interactions on canvas
+      const target = e.target as HTMLElement
+      if (target.tagName === 'CANVAS') {
+        return
+      }
+      // Prevent other touch dragging
       if (e.type === 'touchmove') {
         e.preventDefault()
         e.stopPropagation()
       }
     }
 
-    document.addEventListener('mousemove', preventDrag, true)
     document.addEventListener('dragstart', preventDrag, true)
     document.addEventListener('touchmove', preventTouchDrag, true)
 
@@ -334,9 +341,11 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
     let clonedWireframe: LineSegments2 | THREE.LineSegments | null = null
     let animationId: number
     let handleResize: () => void
-    let handleKeyDown: (e: KeyboardEvent) => void
-    let handleKeyUp: (e: KeyboardEvent) => void
     let handleClick: (e: MouseEvent) => void
+    let handleMouseDown: (e: MouseEvent) => void
+    let handleMouseMove: (e: MouseEvent) => void
+    let handleMouseUp: (e: MouseEvent) => void
+    let handleMouseLeave: (e: MouseEvent) => void
     let raycaster: THREE.Raycaster
     let vertexSpheres: THREE.Mesh[] = []
     let vertexGroup: THREE.Group
@@ -379,6 +388,7 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
       renderer = new THREE.WebGLRenderer({ antialias: true })
       renderer.setSize(width, height)
       renderer.localClippingEnabled = true
+      renderer.domElement.style.cursor = 'grab'
       containerRef.current?.appendChild(renderer.domElement)
 
       // Calculate the initial rotation matrix to align with screen coordinates
@@ -969,26 +979,97 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
       }
       window.addEventListener('resize', handleResize)
 
-      // Keyboard controls
-      handleKeyDown = (e: KeyboardEvent) => {
-        const key = e.key.toLowerCase()
-        keysRef.current.add(key)
+      // Mouse drag handlers for rotation
+      handleMouseDown = (e: MouseEvent) => {
+        const target = e.target as HTMLElement
+        // Only handle mouse down on canvas
+        if (target.tagName !== 'CANVAS') return
         
-        // ESC functionality removed
+        // Only start drag on left mouse button
+        if (e.button !== 0) return
+        
+        isDraggingRef.current = true
+        mouseDownPositionRef.current = { x: e.clientX, y: e.clientY }
+        lastMousePositionRef.current = { x: e.clientX, y: e.clientY }
+        
+        // Change cursor to grabbing
+        if (renderer) {
+          renderer.domElement.style.cursor = 'grabbing'
+        }
+        
+        // Prevent default to avoid text selection
+        e.preventDefault()
       }
-
-      handleKeyUp = (e: KeyboardEvent) => {
-        keysRef.current.delete(e.key.toLowerCase())
+      
+      handleMouseMove = (e: MouseEvent) => {
+        if (!isDraggingRef.current || !lastMousePositionRef.current) return
+        
+        const deltaX = e.clientX - lastMousePositionRef.current.x
+        const deltaY = e.clientY - lastMousePositionRef.current.y
+        
+        // Rotation sensitivity (adjust as needed)
+        const rotationSensitivity = 0.005
+        
+        // Update rotation: horizontal movement = yaw, vertical movement = pitch
+        rotationRef.current.yaw += deltaX * rotationSensitivity
+        rotationRef.current.pitch += deltaY * rotationSensitivity // Drag down = rotate down, drag up = rotate up
+        
+        // Clamp pitch to -90 to +90 degrees
+        const maxPitch = Math.PI / 2
+        const minPitch = -Math.PI / 2
+        rotationRef.current.pitch = Math.max(minPitch, Math.min(maxPitch, rotationRef.current.pitch))
+        
+        lastMousePositionRef.current = { x: e.clientX, y: e.clientY }
       }
-
-      window.addEventListener('keydown', handleKeyDown)
-      window.addEventListener('keyup', handleKeyUp)
-
+      
+      handleMouseUp = (e: MouseEvent) => {
+        if (!isDraggingRef.current) return
+        
+        // Check if this was a click (no significant movement) or a drag
+        const wasClick = mouseDownPositionRef.current && 
+          Math.abs(e.clientX - mouseDownPositionRef.current.x) < 5 &&
+          Math.abs(e.clientY - mouseDownPositionRef.current.y) < 5
+        
+        isDraggingRef.current = false
+        lastMousePositionRef.current = null
+        mouseDownPositionRef.current = null
+        
+        // Change cursor back to grab
+        if (renderer) {
+          renderer.domElement.style.cursor = 'grab'
+        }
+        
+        // If it was a click (not a drag), trigger the click handler
+        if (wasClick) {
+          handleClick(e)
+        }
+      }
+      
+      handleMouseLeave = (e: MouseEvent) => {
+        // Reset drag state if mouse leaves the window while dragging
+        if (isDraggingRef.current) {
+          isDraggingRef.current = false
+          lastMousePositionRef.current = null
+          mouseDownPositionRef.current = null
+          if (renderer) {
+            renderer.domElement.style.cursor = 'grab'
+          }
+        }
+      }
+      
+      renderer.domElement.addEventListener('mousedown', handleMouseDown)
+      window.addEventListener('mousemove', handleMouseMove)
+      window.addEventListener('mouseup', handleMouseUp)
+      window.addEventListener('mouseleave', handleMouseLeave)
+      
       // Click handler for placing stones on vertex spheres
       handleClick = (e: MouseEvent) => {
         const target = e.target as HTMLElement
         // Only handle clicks on canvas
         if (target.tagName !== 'CANVAS') return
+        
+        // Don't handle click if we're currently dragging
+        if (isDraggingRef.current) return
         
         // Get mouse position in normalized device coordinates (-1 to +1)
         const rect = renderer.domElement.getBoundingClientRect()
@@ -1049,40 +1130,16 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
           }
         }
       }
-      
-      renderer.domElement.addEventListener('click', handleClick)
 
-      // Animation loop with WASD controls
+      // Animation loop
       // Coordinate system: X=right, Y=up, Z=out (towards viewer)
       const animate = () => {
         animationId = requestAnimationFrame(animate)
-        
-        const rotationSpeed = 0.02
-        
-        // W/S: Rotate Y' around global X axis (pitch)
-        // S: Y' rotates clockwise around X (positive rotation around X)
-        // W: Y' rotates counterclockwise around X (negative rotation around X)
-        if (keysRef.current.has('s')) {
-          rotationRef.current.pitch += rotationSpeed  // Clockwise around X
-        }
-        if (keysRef.current.has('w')) {
-          rotationRef.current.pitch -= rotationSpeed  // Counterclockwise around X
-        }
         
         // Clamp pitch to -90 to +90 degrees (-Math.PI/2 to Math.PI/2 radians)
         const maxPitch = Math.PI / 2  // 90 degrees
         const minPitch = -Math.PI / 2  // -90 degrees
         rotationRef.current.pitch = Math.max(minPitch, Math.min(maxPitch, rotationRef.current.pitch))
-        
-        // A/D: Rotate around Y' axis (yaw) - local Y axis after X rotation
-        // D: Rotate positive around Y'
-        // A: Rotate negative around Y'
-        if (keysRef.current.has('d')) {
-          rotationRef.current.yaw += rotationSpeed
-        }
-        if (keysRef.current.has('a')) {
-          rotationRef.current.yaw -= rotationSpeed
-        }
 
         // Apply rotations correctly:
         // 1. Start with initial rotation
@@ -1142,14 +1199,20 @@ export default function GoPolyhedronViewer({ dataFile, name, game, onPlaceStone,
 
     // Cleanup function
     return () => {
-      document.removeEventListener('mousemove', preventDrag, true)
       document.removeEventListener('dragstart', preventDrag, true)
       document.removeEventListener('touchmove', preventTouchDrag, true)
       if (handleResize) window.removeEventListener('resize', handleResize)
-      if (handleKeyDown) window.removeEventListener('keydown', handleKeyDown)
-      if (handleKeyUp) window.removeEventListener('keyup', handleKeyUp)
-      if (handleClick && renderer) {
-        renderer.domElement.removeEventListener('click', handleClick)
+      if (handleMouseDown && renderer) {
+        renderer.domElement.removeEventListener('mousedown', handleMouseDown)
+      }
+      if (handleMouseMove) {
+        window.removeEventListener('mousemove', handleMouseMove)
+      }
+      if (handleMouseUp) {
+        window.removeEventListener('mouseup', handleMouseUp)
+      }
+      if (handleMouseLeave) {
+        window.removeEventListener('mouseleave', handleMouseLeave)
       }
       if (animationId) {
         cancelAnimationFrame(animationId)
