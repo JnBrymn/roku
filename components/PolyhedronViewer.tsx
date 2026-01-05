@@ -14,6 +14,9 @@ export default function PolyhedronViewer({ dataFile, name }: PolyhedronViewerPro
   const containerRef = useRef<HTMLDivElement>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
   const animationIdRef = useRef<number | null>(null)
+  const wireframeRef = useRef<THREE.LineSegments | null>(null)
+  const sceneRef = useRef<THREE.Scene | null>(null)
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
   const router = useRouter()
   const [info, setInfo] = useState<string>('')
   
@@ -23,10 +26,6 @@ export default function PolyhedronViewer({ dataFile, name }: PolyhedronViewerPro
 
   useEffect(() => {
     if (!containerRef.current) return
-
-    let scene: THREE.Scene
-    let camera: THREE.PerspectiveCamera
-    let wireframe: THREE.LineSegments
 
     const init = async () => {
       // Check if component was unmounted before async completes (React Strict Mode)
@@ -43,13 +42,15 @@ export default function PolyhedronViewer({ dataFile, name }: PolyhedronViewerPro
       setInfo(`${data.vertices.length} vertices, ${data.edges.length} edges`)
 
       // Create scene
-      scene = new THREE.Scene()
+      const scene = new THREE.Scene()
       scene.background = new THREE.Color(0x0f0f0f)
+      sceneRef.current = scene
 
       // Create camera
-      camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
+      const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
       camera.position.set(3, 3, 3)
       camera.lookAt(0, 0, 0)
+      cameraRef.current = camera
 
       // Create renderer and store in ref IMMEDIATELY (before any DOM operations)
       const renderer = new THREE.WebGLRenderer({ antialias: true })
@@ -60,8 +61,20 @@ export default function PolyhedronViewer({ dataFile, name }: PolyhedronViewerPro
       if (!containerRef.current) {
         renderer.dispose()
         rendererRef.current = null
+        sceneRef.current = null
+        cameraRef.current = null
         return
       }
+      
+      // Clear any existing canvases (React Strict Mode creates duplicates)
+      const existingCanvases = containerRef.current.querySelectorAll('canvas')
+      existingCanvases.forEach(canvas => {
+        try {
+          containerRef.current?.removeChild(canvas)
+        } catch (e) {
+          // Canvas may have already been removed
+        }
+      })
       
       containerRef.current.appendChild(renderer.domElement)
 
@@ -71,7 +84,8 @@ export default function PolyhedronViewer({ dataFile, name }: PolyhedronViewerPro
         color: 0x667eea,
         linewidth: 2
       })
-      wireframe = new THREE.LineSegments(geometry, material)
+      const wireframe = new THREE.LineSegments(geometry, material)
+      wireframeRef.current = wireframe
       scene.add(wireframe)
 
       // Add lights
@@ -84,13 +98,16 @@ export default function PolyhedronViewer({ dataFile, name }: PolyhedronViewerPro
 
       // Animation loop
       const animate = () => {
-        if (!rendererRef.current || !wireframe) return // Guard against cleanup
+        if (!rendererRef.current || !wireframeRef.current || !sceneRef.current || !cameraRef.current) {
+          return // Guard against cleanup
+        }
         animationIdRef.current = requestAnimationFrame(animate)
         
-        wireframe.rotation.x += 0.005
-        wireframe.rotation.y += 0.01
+        wireframeRef.current.rotation.x += 0.005
+        wireframeRef.current.rotation.y += 0.01
+        wireframeRef.current.updateMatrixWorld(true)
         
-        rendererRef.current.render(scene, camera)
+        rendererRef.current.render(sceneRef.current, cameraRef.current)
       }
 
       animate()
@@ -118,6 +135,10 @@ export default function PolyhedronViewer({ dataFile, name }: PolyhedronViewerPro
         rendererRef.current.dispose()
         rendererRef.current = null
       }
+      // Clear refs
+      wireframeRef.current = null
+      sceneRef.current = null
+      cameraRef.current = null
     }
   }, [dataFile])
 
